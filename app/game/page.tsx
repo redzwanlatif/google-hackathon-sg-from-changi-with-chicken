@@ -792,12 +792,17 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
         </div>
       </div>
 
-      {/* Chicken Reaction Bubble */}
-      <ChickenBubble
-        reaction={chickenReaction}
-        chickenMood={state.chickenMood}
-        onDismiss={() => setChickenReaction(null)}
-      />
+      {/* Chicken Widget & Bubble - fixed on desktop only */}
+      <div className="hidden md:block fixed bottom-36 right-4 z-40">
+        <div className="flex flex-col items-end">
+          <ChickenBubble
+            reaction={chickenReaction}
+            chickenMood={state.chickenMood}
+            onDismiss={() => setChickenReaction(null)}
+          />
+          <ChickenWidget onChickenClick={() => updateChickenMood(3)} />
+        </div>
+      </div>
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col h-full p-4 max-w-2xl mx-auto w-full">
@@ -991,8 +996,13 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
             </button>
           </div>
 
-          {/* Chicken Widget - inline at bottom on mobile */}
-          <div className="flex justify-center pt-2">
+          {/* Chicken Widget with Bubble - inline on mobile only */}
+          <div className="flex flex-col items-center pt-2 relative md:hidden">
+            <ChickenBubble
+              reaction={chickenReaction}
+              chickenMood={state.chickenMood}
+              onDismiss={() => setChickenReaction(null)}
+            />
             <ChickenWidget onChickenClick={() => updateChickenMood(3)} />
           </div>
         </div>

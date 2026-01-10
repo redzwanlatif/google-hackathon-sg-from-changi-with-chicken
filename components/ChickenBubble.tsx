@@ -48,33 +48,34 @@ export function ChickenBubble({
     <AnimatePresence>
       {isVisible && reaction && (
         <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.8 }}
+          initial={{ opacity: 0, y: 10, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.9 }}
-          className="fixed bottom-[480px] right-4 z-30 max-w-xs"
+          exit={{ opacity: 0, y: 5, scale: 0.95 }}
+          transition={{ duration: 0.2 }}
+          className="z-30 max-w-[280px] mb-2"
         >
           {/* Speech bubble */}
           <div className="relative">
             {/* Bubble content */}
-            <div className="bg-amber-100 border-2 border-amber-400 rounded-2xl rounded-br-none p-3 shadow-lg">
+            <div className="bg-amber-100 border-3 border-amber-500 rounded-2xl p-3 shadow-lg">
               {/* Sound effect */}
-              <div className="text-lg font-bold text-amber-700 mb-1">
-                {reaction.sound}
+              <div className="text-base font-bold text-amber-700 mb-1">
+                🐔 {reaction.sound}
               </div>
 
               {/* Thought */}
-              <p className="text-sm text-amber-800 italic mb-2">
+              <p className="text-sm text-amber-800 italic mb-1">
                 {reaction.thought}
               </p>
 
               {/* Action */}
-              <div className="text-xs text-amber-600 flex items-center gap-1">
-                <span>*{reaction.action}*</span>
+              <div className="text-xs text-amber-600">
+                *{reaction.action}*
               </div>
             </div>
 
-            {/* Tail pointing to chicken */}
-            <div className="absolute -bottom-2 right-32 w-4 h-4 bg-amber-100 border-b-2 border-r-2 border-amber-400 transform rotate-45" />
+            {/* Tail pointing down to chicken */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-amber-100 border-b-3 border-r-3 border-amber-500 transform rotate-45" />
           </div>
         </motion.div>
       )}
