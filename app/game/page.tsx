@@ -11,6 +11,13 @@ import { TextInput } from '@/components/TextInput';
 import { LOCATION_INFO } from '@/lib/game-state';
 import { getNPCConfig, getNPCSystemPrompt, getNPCPersona } from '@/lib/npc-configs';
 import { CameraQuest } from '@/components/CameraQuest';
+// Advanced Gemini Features
+import { NarratorBanner, NarratorToast } from '@/components/NarratorBanner';
+import { ChickenBubble } from '@/components/ChickenBubble';
+import { EmotionIndicator } from '@/components/EmotionIndicator';
+import { generateNarration, getQuickNarration, NarratorEvent } from '@/lib/narrator';
+import { getChickenReaction, getQuickChickenReaction, QUICK_CHICKEN_REACTIONS } from '@/lib/ai-chicken';
+import { detectFaceEmotion, analyzeTextEmotion, PlayerEmotion } from '@/lib/emotion-detector';
 
 export default function GamePage() {
   const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding, debugJump } = useGame();
@@ -25,6 +32,24 @@ export default function GamePage() {
     description: string;
     npc: string;
   } | null>(null);
+
+  // Advanced Gemini Features State
+  const [narratorMessage, setNarratorMessage] = useState<string | null>(null);
+  const [chickenReaction, setChickenReaction] = useState<{
+    sound: string;
+    thought: string;
+    action: string;
+  } | null>(null);
+  const [playerEmotion, setPlayerEmotion] = useState<PlayerEmotion | null>(null);
+  const [emotionDescription, setEmotionDescription] = useState<string>('');
+  const [enableEmotionDetection, setEnableEmotionDetection] = useState(false);
+
+  // Refs for advanced features
+  const emotionVideoRef = useRef<HTMLVideoElement | null>(null);
+  const emotionCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const emotionStreamRef = useRef<MediaStream | null>(null);
+  const lastNarratorEventRef = useRef<string>('');
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
   // Camera quest configurations per NPC
   const CAMERA_QUESTS: Record<string, { prompt: string; description: string }> = {
@@ -45,6 +70,170 @@ export default function GamePage() {
   // Get NPC config
   const npcConfig = state.currentNpc ? getNPCConfig(state.currentNpc) : null;
   const systemPrompt = state.currentNpc ? getNPCSystemPrompt(state.currentNpc) : '';
+
+  // Trigger narrator for events
+  const triggerNarrator = useCallback(async (event: NarratorEvent, extraContext?: string) => {
+    // Don't repeat the same event
+    const eventKey = `${event}-${extraContext || ''}`;
+    if (lastNarratorEventRef.current === eventKey) return;
+    lastNarratorEventRef.current = eventKey;
+
+    // Try quick narration first (no API call)
+    const quickEvent = event as keyof typeof QUICK_CHICKEN_REACTIONS;
+    const quickNarration = getQuickNarration(quickEvent as 'game_start' | 'chicken_escape_warning' | 'time_30min' | 'time_10min' | 'memory_unlock');
+    if (quickNarration) {
+      setNarratorMessage(quickNarration);
+      return;
+    }
+
+    // Use API for dynamic narration
+    if (apiKey) {
+      const narration = await generateNarration({
+        event,
+        location: LOCATION_INFO[state.location]?.name,
+        npc: npcConfig?.name,
+        timeRemaining: state.timeRemaining,
+        chickenMood: state.chickenMood,
+        memoriesCount: state.memories.length,
+        playerEmotion: playerEmotion || undefined,
+        extraContext
+      }, apiKey);
+
+      if (narration) {
+        setNarratorMessage(narration);
+      }
+    }
+  }, [apiKey, state.location, state.timeRemaining, state.chickenMood, state.memories.length, npcConfig, playerEmotion]);
+
+  // Trigger chicken reaction
+  const triggerChickenReaction = useCallback(async (event: string, useAI = false) => {
+    // Try quick reaction first
+    const quickEvent = event as keyof typeof QUICK_CHICKEN_REACTIONS;
+    if (QUICK_CHICKEN_REACTIONS[quickEvent]) {
+      const reaction = getQuickChickenReaction(quickEvent);
+      setChickenReaction(reaction);
+      if (reaction.moodChange !== 0) {
+        updateChickenMood(reaction.moodChange);
+      }
+      return;
+    }
+
+    // Use AI for complex reactions
+    if (useAI && apiKey) {
+      const reaction = await getChickenReaction({
+        mood: state.chickenMood,
+        chickenName: state.chickenName || 'the chicken',
+        location: LOCATION_INFO[state.location]?.name || state.location,
+        playerEmotion: playerEmotion || undefined,
+        lastPlayerAction: event,
+        timeRemaining: state.timeRemaining,
+        npcName: npcConfig?.name
+      }, event, apiKey);
+
+      if (reaction) {
+        setChickenReaction(reaction);
+        if (reaction.moodChange !== 0) {
+          updateChickenMood(reaction.moodChange);
+        }
+      }
+    }
+  }, [apiKey, state.chickenMood, state.chickenName, state.location, state.timeRemaining, npcConfig, playerEmotion, updateChickenMood]);
+
+  // Analyze player text emotion
+  const analyzePlayerEmotion = useCallback(async (text: string) => {
+    if (!apiKey || !text.trim()) return;
+
+    const result = await analyzeTextEmotion(text, apiKey);
+    if (result) {
+      setPlayerEmotion(result.emotion as PlayerEmotion);
+      setEmotionDescription(result.description);
+
+      // Chicken reacts to player emotion
+      if (result.emotion === 'angry') {
+        triggerChickenReaction('player_angry');
+      } else if (result.emotion === 'happy') {
+        triggerChickenReaction('player_happy');
+      }
+    }
+  }, [apiKey, triggerChickenReaction]);
+
+  // Front camera emotion detection
+  const startEmotionDetection = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 320, height: 240 },
+        audio: false
+      });
+      emotionStreamRef.current = stream;
+
+      // Create hidden video element
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      await video.play();
+      emotionVideoRef.current = video;
+
+      // Create canvas for capturing
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      emotionCanvasRef.current = canvas;
+
+      setEnableEmotionDetection(true);
+      console.log('[Emotion] Front camera started');
+    } catch (err) {
+      console.error('[Emotion] Camera error:', err);
+    }
+  }, []);
+
+  const stopEmotionDetection = useCallback(() => {
+    if (emotionStreamRef.current) {
+      emotionStreamRef.current.getTracks().forEach(track => track.stop());
+      emotionStreamRef.current = null;
+    }
+    emotionVideoRef.current = null;
+    emotionCanvasRef.current = null;
+    setEnableEmotionDetection(false);
+  }, []);
+
+  const captureAndAnalyzeEmotion = useCallback(async () => {
+    if (!emotionVideoRef.current || !emotionCanvasRef.current || !apiKey) return;
+
+    const video = emotionVideoRef.current;
+    const canvas = emotionCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg', 0.5);
+
+    const result = await detectFaceEmotion(imageData, apiKey);
+    if (result && result.confidence > 0.5) {
+      setPlayerEmotion(result.emotion);
+      setEmotionDescription(result.description);
+
+      // React to extreme emotions
+      if (result.emotion === 'angry') {
+        triggerNarrator('player_angry');
+        triggerChickenReaction('player_angry');
+      } else if (result.emotion === 'confused') {
+        triggerNarrator('player_confused');
+      }
+    }
+  }, [apiKey, triggerNarrator, triggerChickenReaction]);
+
+  // Periodic emotion detection (every 10 seconds)
+  useEffect(() => {
+    if (!enableEmotionDetection) return;
+
+    const interval = setInterval(() => {
+      captureAndAnalyzeEmotion();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [enableEmotionDetection, captureAndAnalyzeEmotion]);
 
   // Get NPC voice and persona for Singlish accent
   const npcVoice = npcConfig?.voice || 'Kore';
@@ -79,6 +268,61 @@ export default function GamePage() {
       startGame();
     }
   }, [state.gameStarted, startGame]);
+
+  // Narrator: Game start
+  useEffect(() => {
+    if (state.gameStarted && !state.gameOver && state.location === 'changi') {
+      // Small delay for dramatic effect
+      const timer = setTimeout(() => {
+        triggerNarrator('game_start');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [state.gameStarted]);
+
+  // Narrator: Location changes
+  const prevLocationRef = useRef(state.location);
+  useEffect(() => {
+    if (prevLocationRef.current !== state.location && state.gameStarted) {
+      triggerNarrator('location_change', `Arrived at ${LOCATION_INFO[state.location]?.name}`);
+
+      // Chicken reacts to certain locations
+      if (state.location === 'maxwell') {
+        triggerChickenReaction('location_hawker');
+      } else if (state.location === 'east-coast') {
+        triggerChickenReaction('location_beach');
+      } else if (state.location === 'mbs') {
+        triggerChickenReaction('location_mbs');
+      } else {
+        triggerChickenReaction('traveling');
+      }
+    }
+    prevLocationRef.current = state.location;
+  }, [state.location, state.gameStarted]);
+
+  // Narrator: Time warnings
+  useEffect(() => {
+    if (state.timeRemaining === 1800) { // 30 min
+      triggerNarrator('time_warning');
+    } else if (state.timeRemaining === 600) { // 10 min
+      triggerNarrator('time_warning');
+      triggerChickenReaction('time_warning');
+    } else if (state.timeRemaining === 120) { // 2 min
+      triggerNarrator('near_ending');
+    }
+  }, [state.timeRemaining]);
+
+  // Narrator: Chicken mood warnings
+  const prevMoodRef = useRef(state.chickenMood);
+  useEffect(() => {
+    if (prevMoodRef.current > 30 && state.chickenMood <= 30) {
+      triggerNarrator('chicken_angry');
+      triggerChickenReaction('ignored');
+    } else if (prevMoodRef.current < 80 && state.chickenMood >= 80) {
+      triggerNarrator('chicken_happy');
+    }
+    prevMoodRef.current = state.chickenMood;
+  }, [state.chickenMood]);
 
   // Reset conversation when NPC changes
   useEffect(() => {
@@ -211,11 +455,47 @@ export default function GamePage() {
   const hasCameraQuest = state.currentNpc && CAMERA_QUESTS[state.currentNpc];
   const questNotDone = state.currentNpc && !questCompleteRef.current.has(`${state.currentNpc}-quest`);
 
+  // Check if player can deliver the chicken (at MBS)
+  const canDeliverChicken = state.location === 'mbs' && !state.gameOver;
+
+  // Deliver chicken and determine ending
+  const deliverChicken = useCallback(() => {
+    const memories = state.memories.length;
+    const mood = state.chickenMood;
+    const time = state.timeRemaining;
+
+    // Determine ending based on performance
+    let ending: 'perfect' | 'good' | 'okay';
+
+    if (mood >= 70 && memories >= 4 && time >= 600) {
+      // High mood, most memories, plenty of time
+      ending = 'perfect';
+    } else if (mood >= 40 && memories >= 2) {
+      // Decent mood, some memories
+      ending = 'good';
+    } else {
+      // Barely made it
+      ending = 'okay';
+    }
+
+    // Trigger narrator for the ending
+    triggerNarrator('near_ending', `Delivering chicken with ${mood}% mood!`);
+
+    // Small delay for dramatic effect, then trigger ending
+    setTimeout(() => {
+      triggerEnding(ending);
+    }, 1500);
+  }, [state.memories.length, state.chickenMood, state.timeRemaining, triggerEnding, triggerNarrator]);
+
   // Handle mic button click based on current status
   const handleMicClick = () => {
     if (status === 'listening') {
       // Stop listening (speech recognition will auto-process)
       stopListening();
+      // Analyze emotion from what they said
+      if (userTranscript) {
+        analyzePlayerEmotion(userTranscript);
+      }
     } else if (status === 'speaking') {
       // Stop speaking
       stopSpeaking();
@@ -223,6 +503,7 @@ export default function GamePage() {
       // Start listening
       startListening();
       updateChickenMood(1); // Reward for talking
+      triggerChickenReaction('petted'); // Chicken likes attention
     }
     // If processing, do nothing (wait for AI)
   };
@@ -230,6 +511,9 @@ export default function GamePage() {
   // Handle text input submit
   const handleTextSubmit = async () => {
     if (textInput.trim() && status === 'idle') {
+      // Analyze player's text emotion
+      analyzePlayerEmotion(textInput);
+
       await sendText(textInput);
       setTextInput('');
       updateChickenMood(1);
@@ -291,6 +575,27 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen flex flex-col p-4 max-w-2xl mx-auto">
+      {/* Narrator Banner */}
+      <NarratorBanner
+        message={narratorMessage}
+        onDismiss={() => setNarratorMessage(null)}
+        autoHideDelay={5000}
+      />
+
+      {/* Player Emotion Indicator */}
+      <EmotionIndicator
+        emotion={playerEmotion}
+        description={emotionDescription}
+        showCamera={enableEmotionDetection}
+      />
+
+      {/* Chicken Reaction Bubble */}
+      <ChickenBubble
+        reaction={chickenReaction}
+        chickenMood={state.chickenMood}
+        onDismiss={() => setChickenReaction(null)}
+      />
+
       {/* HUD */}
       <div className="mb-4">
         <GameHUD />
@@ -403,7 +708,17 @@ export default function GamePage() {
         </p>
 
         {/* Action Buttons */}
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-3 flex-wrap">
+          {/* DELIVER CHICKEN - Only at MBS! */}
+          {canDeliverChicken && (
+            <button
+              onClick={deliverChicken}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg animate-pulse"
+            >
+              🐔 DELIVER THE CHICKEN! 🎊
+            </button>
+          )}
+
           {/* Camera Quest Button - only show if NPC has quest and not done */}
           {hasCameraQuest && questNotDone && (
             <button
@@ -739,6 +1054,91 @@ export default function GamePage() {
           >
             ✅ Complete Current Quest
           </button>
+
+          <h4 className="font-bold mb-1 text-yellow-400 mt-3">🎭 Advanced Features</h4>
+
+          {/* Narrator Test */}
+          <div className="flex flex-wrap gap-1 mb-2">
+            <button
+              onClick={() => triggerNarrator('game_start')}
+              className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+            >
+              Narrator: Start
+            </button>
+            <button
+              onClick={() => triggerNarrator('time_warning')}
+              className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+            >
+              Narrator: Time
+            </button>
+            <button
+              onClick={() => triggerNarrator('chicken_angry')}
+              className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+            >
+              Narrator: Angry
+            </button>
+          </div>
+
+          {/* Chicken Reactions Test */}
+          <div className="flex flex-wrap gap-1 mb-2">
+            <button
+              onClick={() => triggerChickenReaction('petted')}
+              className="bg-amber-600 hover:bg-amber-700 px-2 py-1 rounded text-xs"
+            >
+              🐔 Pet
+            </button>
+            <button
+              onClick={() => triggerChickenReaction('ignored')}
+              className="bg-amber-600 hover:bg-amber-700 px-2 py-1 rounded text-xs"
+            >
+              🐔 Ignore
+            </button>
+            <button
+              onClick={() => triggerChickenReaction('location_hawker')}
+              className="bg-amber-600 hover:bg-amber-700 px-2 py-1 rounded text-xs"
+            >
+              🐔 Hawker
+            </button>
+            <button
+              onClick={() => triggerChickenReaction('Player is flirting with the NPC', true)}
+              className="bg-amber-600 hover:bg-amber-700 px-2 py-1 rounded text-xs"
+            >
+              🐔 AI React
+            </button>
+          </div>
+
+          {/* Emotion Detection */}
+          <div className="flex flex-wrap gap-1 mb-2">
+            <button
+              onClick={() => enableEmotionDetection ? stopEmotionDetection() : startEmotionDetection()}
+              className={`${enableEmotionDetection ? 'bg-red-600' : 'bg-green-600'} hover:opacity-80 px-2 py-1 rounded text-xs`}
+            >
+              📷 {enableEmotionDetection ? 'Stop' : 'Start'} Face Cam
+            </button>
+            <button
+              onClick={() => setPlayerEmotion('happy')}
+              className="bg-green-600 px-2 py-1 rounded text-xs"
+            >
+              😊
+            </button>
+            <button
+              onClick={() => setPlayerEmotion('angry')}
+              className="bg-red-600 px-2 py-1 rounded text-xs"
+            >
+              😠
+            </button>
+            <button
+              onClick={() => setPlayerEmotion('confused')}
+              className="bg-yellow-600 px-2 py-1 rounded text-xs"
+            >
+              😕
+            </button>
+          </div>
+
+          <div className="text-xs text-gray-400 mt-1">
+            <div>Current Emotion: {playerEmotion || 'none'}</div>
+            <div>Face Cam: {enableEmotionDetection ? '🟢 On' : '⚫ Off'}</div>
+          </div>
         </div>
       )}
 
