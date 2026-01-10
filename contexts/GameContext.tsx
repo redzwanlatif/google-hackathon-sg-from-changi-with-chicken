@@ -26,7 +26,8 @@ type GameAction =
   | { type: 'UPDATE_NPC_TRUST'; npcId: NPCId; delta: number }
   | { type: 'COMPLETE_QUEST'; questId: string }
   | { type: 'GAME_OVER'; ending: GameState['ending'] }
-  | { type: 'RESET_GAME' };
+  | { type: 'RESET_GAME' }
+  | { type: 'DEBUG_JUMP'; location: Location; unlockedLocations: Location[] };
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -147,6 +148,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'RESET_GAME':
       return INITIAL_GAME_STATE;
 
+    case 'DEBUG_JUMP':
+      const jumpLocationInfo = LOCATION_INFO[action.location];
+      return {
+        ...state,
+        gameStarted: true,
+        location: action.location,
+        currentNpc: jumpLocationInfo.npcs[0] || null,
+        unlockedLocations: action.unlockedLocations,
+      };
+
     default:
       return state;
   }
@@ -167,6 +178,7 @@ interface GameContextValue {
   updateNpcTrust: (npcId: NPCId, delta: number) => void;
   completeQuest: (questId: string) => void;
   triggerEnding: (ending: GameState['ending']) => void;
+  debugJump: (location: Location, unlockedLocations: Location[]) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -244,6 +256,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'GAME_OVER', ending });
   }, []);
 
+  const debugJump = useCallback((location: Location, unlockedLocations: Location[]) => {
+    dispatch({ type: 'DEBUG_JUMP', location, unlockedLocations });
+  }, []);
+
   return (
     <GameContext.Provider value={{
       state,
@@ -259,6 +275,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       updateNpcTrust,
       completeQuest,
       triggerEnding,
+      debugJump,
     }}>
       {children}
     </GameContext.Provider>

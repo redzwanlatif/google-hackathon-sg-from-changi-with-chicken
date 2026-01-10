@@ -10,14 +10,37 @@ import { ChickenWidget } from '@/components/ChickenWidget';
 import { TextInput } from '@/components/TextInput';
 import { LOCATION_INFO } from '@/lib/game-state';
 import { getNPCConfig, getNPCSystemPrompt, getNPCPersona } from '@/lib/npc-configs';
+import { CameraQuest } from '@/components/CameraQuest';
 
 export default function GamePage() {
-  const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding } = useGame();
+  const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding, debugJump } = useGame();
   const [showDebug, setShowDebug] = useState(false);
   const [showTravelMenu, setShowTravelMenu] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [unlockNotification, setUnlockNotification] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
+  const [showCameraQuest, setShowCameraQuest] = useState(false);
+  const [cameraQuestConfig, setCameraQuestConfig] = useState<{
+    prompt: string;
+    description: string;
+    npc: string;
+  } | null>(null);
+
+  // Camera quest configurations per NPC
+  const CAMERA_QUESTS: Record<string, { prompt: string; description: string }> = {
+    'auntie-mei': {
+      prompt: 'Show a chicken or any bird. The player needs to prove they still have the ceremonial chicken.',
+      description: 'Show Auntie Mei the chicken to prove you still have it!'
+    },
+    'grab-uncle': {
+      prompt: 'Show any Singaporean food (chicken rice, laksa, char kway teow, nasi lemak, kopi, etc) or a drink.',
+      description: 'Show Uncle some local food - he\'s hungry!'
+    },
+    'ah-beng': {
+      prompt: 'Show something red or lucky (red item, angpao, red clothing, etc) - for the wedding blessing.',
+      description: 'Show something RED for good luck at the wedding!'
+    }
+  };
 
   // Get NPC config
   const npcConfig = state.currentNpc ? getNPCConfig(state.currentNpc) : null;
@@ -101,20 +124,11 @@ export default function GamePage() {
       }
     }
 
-    // Quest: Auntie Mei - Pay $50 or promise to help
-    if (currentNpc === 'auntie-mei' && !quests.has('auntie-mei-quest')) {
-      if (lowerText.includes('pay') || lowerText.includes('here') || lowerText.includes('fifty') ||
-          lowerText.includes('$50') || lowerText.includes('sorry') || lowerText.includes('help you') ||
-          lowerText.includes('favor') || lowerText.includes('okay lah') || lowerText.includes('fine')) {
-        console.log('[Quest] ✓ Auntie Mei quest complete!');
-        quests.add('auntie-mei-quest');
-      }
-    }
-
-    // Memory 2: Auntie Mei mentions Marcus (AFTER quest done)
+    // Memory 2: Auntie Mei mentions Marcus (AFTER camera quest done)
+    // Camera quest must be completed first - check if quest is in questCompleteRef
     if (currentNpc === 'auntie-mei' && quests.has('auntie-mei-quest') && !unlockedIds.has('memory-2')) {
       if (lowerText.includes('marcus') || lowerText.includes('wedding') || lowerText.includes('groom') ||
-          lowerText.includes('friend') || lowerText.includes('last night')) {
+          lowerText.includes('friend') || lowerText.includes('last night') || lowerText.includes('believe')) {
         console.log('[Memory] ✓ Unlocking memory-2: Marcus!');
         unlockedIds.add('memory-2');
         unlockMemory({
@@ -127,16 +141,7 @@ export default function GamePage() {
       }
     }
 
-    // Quest: Grab Uncle - Give 5 star review
-    if (currentNpc === 'grab-uncle' && !quests.has('grab-uncle-quest')) {
-      if (lowerText.includes('5 star') || lowerText.includes('five star') || lowerText.includes('review') ||
-          lowerText.includes('rating') || lowerText.includes('good driver') || lowerText.includes('best driver')) {
-        console.log('[Quest] ✓ Grab Uncle quest complete!');
-        quests.add('grab-uncle-quest');
-      }
-    }
-
-    // Memory 3: Grab Uncle mentions MBS (AFTER quest done)
+    // Memory 3: Grab Uncle mentions MBS (AFTER camera quest done)
     if (currentNpc === 'grab-uncle' && quests.has('grab-uncle-quest') && !unlockedIds.has('memory-3')) {
       if (lowerText.includes('mbs') || lowerText.includes('marina bay') || lowerText.includes('ceremony') ||
           lowerText.includes('6pm') || lowerText.includes('wedding venue') || lowerText.includes('sands')) {
@@ -152,19 +157,10 @@ export default function GamePage() {
       }
     }
 
-    // Quest: Ah Beng - Answer Singlish quiz correctly
-    if (currentNpc === 'ah-beng' && !quests.has('ah-beng-quest')) {
-      if (lowerText.includes('can lah') || lowerText.includes('shiok') || lowerText.includes('alamak') ||
-          lowerText.includes('correct') || lowerText.includes('you pass') || lowerText.includes('not bad')) {
-        console.log('[Quest] ✓ Ah Beng quest complete!');
-        quests.add('ah-beng-quest');
-      }
-    }
-
-    // Memory 4: Ah Beng mentions best man (AFTER quest done)
+    // Memory 4: Ah Beng mentions best man (AFTER camera quest done)
     if (currentNpc === 'ah-beng' && quests.has('ah-beng-quest') && !unlockedIds.has('memory-4')) {
       if (lowerText.includes('best man') || lowerText.includes('bestman') || lowerText.includes('bachelor') ||
-          lowerText.includes('bbq') || lowerText.includes('party') || lowerText.includes('groomsman')) {
+          lowerText.includes('mbs') || lowerText.includes('marina bay') || lowerText.includes('wedding')) {
         console.log('[Memory] ✓ Unlocking memory-4: Best Man!');
         unlockedIds.add('memory-4');
         unlockMemory({
@@ -177,6 +173,43 @@ export default function GamePage() {
       }
     }
   }, [state.currentNpc, unlockMemory]);
+
+  // Start camera quest for current NPC
+  const startCameraQuest = useCallback(() => {
+    const npc = state.currentNpc;
+    if (npc && CAMERA_QUESTS[npc]) {
+      setCameraQuestConfig({
+        ...CAMERA_QUESTS[npc],
+        npc
+      });
+      setShowCameraQuest(true);
+    }
+  }, [state.currentNpc]);
+
+  // Handle camera quest completion
+  const handleCameraQuestComplete = useCallback((success: boolean, message: string) => {
+    if (success && cameraQuestConfig) {
+      const quests = questCompleteRef.current;
+      const questId = `${cameraQuestConfig.npc}-quest`;
+
+      console.log('[CameraQuest] ✓ Completed:', questId);
+      quests.add(questId);
+
+      // Show notification
+      setUnlockNotification(`📸 Quest Complete!\n${message}`);
+      setTimeout(() => setUnlockNotification(null), 3000);
+
+      // Reward: boost chicken mood
+      updateChickenMood(5);
+    }
+
+    setShowCameraQuest(false);
+    setCameraQuestConfig(null);
+  }, [cameraQuestConfig, updateChickenMood]);
+
+  // Check if current NPC has a camera quest available
+  const hasCameraQuest = state.currentNpc && CAMERA_QUESTS[state.currentNpc];
+  const questNotDone = state.currentNpc && !questCompleteRef.current.has(`${state.currentNpc}-quest`);
 
   // Handle mic button click based on current status
   const handleMicClick = () => {
@@ -369,13 +402,24 @@ export default function GamePage() {
           Tap mic to talk, or type your message. Speak naturally!
         </p>
 
-        {/* Travel Button */}
-        <div className="flex justify-center">
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-3">
+          {/* Camera Quest Button - only show if NPC has quest and not done */}
+          {hasCameraQuest && questNotDone && (
+            <button
+              onClick={startCameraQuest}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full text-sm animate-pulse"
+            >
+              📸 Camera Quest
+            </button>
+          )}
+
+          {/* Travel Button */}
           <button
             onClick={() => setShowTravelMenu(true)}
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-sm"
           >
-            🗺️ Travel to another location
+            🗺️ Travel
           </button>
         </div>
       </div>
@@ -598,7 +642,118 @@ export default function GamePage() {
           <div className="bg-black/50 p-2 rounded text-gray-300 max-h-20 overflow-y-auto">
             {currentTranscript || 'No transcript yet'}
           </div>
+
+          <h4 className="font-bold mb-1 text-yellow-400 mt-3">Camera Quest</h4>
+          <button
+            onClick={startCameraQuest}
+            disabled={!hasCameraQuest}
+            className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 px-2 py-1 rounded w-full"
+          >
+            Test Camera Quest
+          </button>
+
+          <h4 className="font-bold mb-1 text-yellow-400 mt-3">🎮 Stage Jump</h4>
+          <div className="flex flex-wrap gap-1 mb-2">
+            <button
+              onClick={() => {
+                debugJump('changi', ['changi']);
+                questCompleteRef.current.clear();
+                unlockedMemoryIdsRef.current.clear();
+                resetConversation();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+            >
+              1. Changi
+            </button>
+            <button
+              onClick={() => {
+                debugJump('maxwell', ['changi', 'maxwell']);
+                questCompleteRef.current.clear();
+                unlockedMemoryIdsRef.current.add('memory-1');
+                resetConversation();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+            >
+              2. Maxwell
+            </button>
+            <button
+              onClick={() => {
+                debugJump('cbd', ['changi', 'maxwell', 'cbd']);
+                questCompleteRef.current.add('auntie-mei-quest');
+                unlockedMemoryIdsRef.current.add('memory-1');
+                unlockedMemoryIdsRef.current.add('memory-2');
+                resetConversation();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+            >
+              3. CBD
+            </button>
+            <button
+              onClick={() => {
+                debugJump('east-coast', ['changi', 'maxwell', 'cbd', 'east-coast']);
+                questCompleteRef.current.add('auntie-mei-quest');
+                questCompleteRef.current.add('grab-uncle-quest');
+                unlockedMemoryIdsRef.current.add('memory-1');
+                unlockedMemoryIdsRef.current.add('memory-2');
+                unlockedMemoryIdsRef.current.add('memory-3');
+                resetConversation();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+            >
+              4. East Coast
+            </button>
+            <button
+              onClick={() => {
+                debugJump('mbs', ['changi', 'maxwell', 'cbd', 'east-coast', 'mbs']);
+                questCompleteRef.current.add('auntie-mei-quest');
+                questCompleteRef.current.add('grab-uncle-quest');
+                questCompleteRef.current.add('ah-beng-quest');
+                unlockedMemoryIdsRef.current.add('memory-1');
+                unlockedMemoryIdsRef.current.add('memory-2');
+                unlockedMemoryIdsRef.current.add('memory-3');
+                unlockedMemoryIdsRef.current.add('memory-4');
+                resetConversation();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+            >
+              5. MBS
+            </button>
+          </div>
+          <p className="text-gray-500 text-xs">Jumps to stage with all prerequisites done</p>
+
+          <h4 className="font-bold mb-1 text-yellow-400 mt-3">Quest Status</h4>
+          <div className="text-xs text-gray-400">
+            <div>Auntie Mei: {questCompleteRef.current.has('auntie-mei-quest') ? '✅' : '❌'}</div>
+            <div>Grab Uncle: {questCompleteRef.current.has('grab-uncle-quest') ? '✅' : '❌'}</div>
+            <div>Ah Beng: {questCompleteRef.current.has('ah-beng-quest') ? '✅' : '❌'}</div>
+          </div>
+          <button
+            onClick={() => {
+              if (state.currentNpc) {
+                questCompleteRef.current.add(`${state.currentNpc}-quest`);
+                setUnlockNotification('Quest marked complete!');
+                setTimeout(() => setUnlockNotification(null), 2000);
+              }
+            }}
+            className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded w-full mt-1 text-xs"
+          >
+            ✅ Complete Current Quest
+          </button>
         </div>
+      )}
+
+      {/* Camera Quest Modal */}
+      {cameraQuestConfig && (
+        <CameraQuest
+          isOpen={showCameraQuest}
+          onClose={() => {
+            setShowCameraQuest(false);
+            setCameraQuestConfig(null);
+          }}
+          questPrompt={cameraQuestConfig.prompt}
+          questDescription={cameraQuestConfig.description}
+          onQuestComplete={handleCameraQuestComplete}
+        />
       )}
     </div>
   );
