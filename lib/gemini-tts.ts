@@ -42,14 +42,14 @@ export class GeminiTTS {
     this.persona = persona;
   }
 
-  async speak(text: string): Promise<void> {
+  async speak(text: string, onAudioReady?: () => void): Promise<void> {
     if (this.isPlaying) {
       this.stop();
     }
 
     try {
       this.isPlaying = true;
-      this.onStartCallback?.();
+      // Note: onStartCallback will be called when audio actually starts playing, not here
 
       // Build the prompt with persona instructions
       const prompt = this.persona
@@ -78,15 +78,15 @@ export class GeminiTTS {
       const audioResult = this.extractAudioData(response);
 
       if (audioResult) {
-        await this.playAudio(audioResult.data, audioResult.mimeType);
+        await this.playAudio(audioResult.data, audioResult.mimeType, onAudioReady);
       } else {
         console.warn('[GeminiTTS] No audio data in response, falling back to browser TTS');
-        this.fallbackToWebSpeech(text);
+        this.fallbackToWebSpeech(text, onAudioReady);
       }
     } catch (error) {
       console.error('[GeminiTTS] Error:', error);
       // Fallback to browser TTS
-      this.fallbackToWebSpeech(text);
+      this.fallbackToWebSpeech(text, onAudioReady);
     }
   }
 
@@ -121,7 +121,7 @@ export class GeminiTTS {
     return null;
   }
 
-  private async playAudio(audioData: ArrayBuffer, mimeType?: string): Promise<void> {
+  private async playAudio(audioData: ArrayBuffer, mimeType?: string, onAudioReady?: () => void): Promise<void> {
     try {
       if (!this.audioContext || this.audioContext.state === 'closed') {
         this.audioContext = new AudioContext();
@@ -162,6 +162,11 @@ export class GeminiTTS {
       };
 
       console.log('[GeminiTTS] Playing audio, duration:', audioBuffer.duration, 'seconds');
+
+      // Call callbacks when audio actually starts playing
+      this.onStartCallback?.();
+      onAudioReady?.();
+
       source.start(0);
     } catch (error) {
       console.error('[GeminiTTS] Playback error:', error);
@@ -170,11 +175,17 @@ export class GeminiTTS {
     }
   }
 
-  private fallbackToWebSpeech(text: string): void {
+  private fallbackToWebSpeech(text: string, onAudioReady?: () => void): void {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-SG';
       utterance.rate = 1.0;
+
+      utterance.onstart = () => {
+        // Call callbacks when audio actually starts playing
+        this.onStartCallback?.();
+        onAudioReady?.();
+      };
 
       utterance.onend = () => {
         this.isPlaying = false;

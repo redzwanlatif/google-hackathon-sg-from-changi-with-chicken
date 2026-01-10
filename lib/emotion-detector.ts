@@ -2,7 +2,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-export type PlayerEmotion = 'happy' | 'angry' | 'sad' | 'confused' | 'neutral' | 'stressed';
+export type PlayerEmotion = 'happy' | 'angry' | 'sad' | 'confused' | 'neutral' | 'stressed' | 'funny' | 'shocked';
 
 interface EmotionResult {
   emotion: PlayerEmotion;
@@ -33,18 +33,31 @@ export async function detectFaceEmotion(
             }
           },
           {
-            text: `Analyze the person's facial expression in this image.
+            text: `Analyze the person's facial expression in this image. Be reactive and detect expressions quickly!
 
 Respond ONLY with JSON (no markdown):
 {
-  "emotion": "happy" | "angry" | "sad" | "confused" | "neutral" | "stressed",
+  "emotion": "happy" | "angry" | "sad" | "confused" | "neutral" | "stressed" | "funny" | "shocked",
   "confidence": 0.0 to 1.0,
-  "description": "brief description in Singlish"
+  "description": "brief reaction in Singlish"
 }
 
+EMOTION GUIDE:
+- "funny" = making silly face, sticking tongue out, crossing eyes, puffing cheeks, duck face, weird expressions
+- "shocked" = mouth open wide, eyes big, surprised look
+- "happy" = smiling, laughing
+- "angry" = frowning, eyebrows down, fierce look
+- "confused" = eyebrows raised, tilted head, puzzled
+- "stressed" = tense, worried look
+- "sad" = frowning down, tearful
+- "neutral" = no particular expression
+
 Example responses:
+{"emotion": "funny", "confidence": 0.9, "description": "Wah lao you making monkey face ah!"}
+{"emotion": "funny", "confidence": 0.8, "description": "Aiyo why you do duck face sia!"}
+{"emotion": "shocked", "confidence": 0.85, "description": "Wah your face like see ghost!"}
 {"emotion": "happy", "confidence": 0.8, "description": "Wah, you smiling sia!"}
-{"emotion": "stressed", "confidence": 0.7, "description": "Eh, you look damn stressed leh"}
+{"emotion": "angry", "confidence": 0.7, "description": "Oi why so fierce!"}
 {"emotion": "confused", "confidence": 0.9, "description": "Blur like sotong ah you"}
 
 If no face visible, return:

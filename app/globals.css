@@ -69,3 +69,48 @@ body {
   animation: pulse 0.5s ease-in-out infinite;
   color: #ef4444;
 }
+
+/* Comic Game Background */
+.comic-game-bg {
+  background:
+    linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 50%, rgba(15, 52, 96, 0.95) 100%),
+    radial-gradient(circle at 20% 80%, rgba(255, 225, 53, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(226, 54, 54, 0.1) 0%, transparent 50%);
+  min-height: 100vh;
+}
+
+/* Custom border widths for comic styling */
+.border-3 {
+  border-width: 3px;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FFE135;
+  border-radius: 4px;
+  border: 2px solid #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E23636;
+}
+
+/* Focus states for comic style */
+input:focus, button:focus {
+  outline: 3px solid #FFE135;
+  outline-offset: 2px;
+}
+
+/* Selection highlight */
+::selection {
+  background: #FFE135;
+  color: #1a1a1a;
+}

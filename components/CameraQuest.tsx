@@ -9,7 +9,7 @@ interface CameraQuestProps {
   onClose: () => void;
   questPrompt: string;
   questDescription: string;
-  onQuestComplete: (success: boolean, description: string) => void;
+  onQuestComplete: (success: boolean, description: string, capturedImage?: string) => void;
 }
 
 export function CameraQuest({
@@ -22,6 +22,7 @@ export function CameraQuest({
   const [status, setStatus] = useState<'starting' | 'scanning' | 'success' | 'error'>('starting');
   const [scanMessage, setScanMessage] = useState('Starting camera...');
   const [successMessage, setSuccessMessage] = useState('');
+  const [successImage, setSuccessImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -136,10 +137,11 @@ Be generous - if you can reasonably see the item, return found=true.`
         console.log('[CameraQuest] Parsed:', parsed);
 
         if (parsed.found) {
-          // Success!
+          // Success! Save the captured image for NPC roast
           console.log('[CameraQuest] SUCCESS!');
           setStatus('success');
           setSuccessMessage(parsed.message || 'Found it!');
+          setSuccessImage(imageData); // Save the image that was shown
           stopCamera();
         } else {
           // Keep scanning, show hint
@@ -205,15 +207,16 @@ Be generous - if you can reasonably see the item, return found=true.`
     setStatus('starting');
     setScanMessage('Starting camera...');
     setSuccessMessage('');
+    setSuccessImage(null);
     setError(null);
     onClose();
   }, [stopCamera, onClose]);
 
   // Handle success confirm
   const handleConfirm = useCallback(() => {
-    onQuestComplete(true, successMessage);
+    onQuestComplete(true, successMessage, successImage || undefined);
     handleClose();
-  }, [successMessage, onQuestComplete, handleClose]);
+  }, [successMessage, successImage, onQuestComplete, handleClose]);
 
   // Start camera when opened
   useEffect(() => {

@@ -7,12 +7,14 @@ interface NarratorBannerProps {
   message: string | null;
   onDismiss?: () => void;
   autoHideDelay?: number;
+  position?: 'top' | 'bottom-left' | 'inline';
 }
 
 export function NarratorBanner({
   message,
   onDismiss,
-  autoHideDelay = 5000
+  autoHideDelay = 5000,
+  position = 'top'
 }: NarratorBannerProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -30,20 +32,61 @@ export function NarratorBanner({
     }
   }, [message, autoHideDelay, onDismiss]);
 
+  const getPositionClasses = () => {
+    switch (position) {
+      case 'top':
+        return 'fixed top-0 left-0 right-0 z-40';
+      case 'bottom-left':
+        return 'fixed bottom-4 left-4 z-40 max-w-sm';
+      case 'inline':
+        return 'relative z-20 mb-4 w-full';
+      default:
+        return 'fixed top-0 left-0 right-0 z-40';
+    }
+  };
+
+  const getAnimationProps = () => {
+    switch (position) {
+      case 'top':
+        return {
+          initial: { y: -100, opacity: 0 },
+          animate: { y: 0, opacity: 1 },
+          exit: { y: -100, opacity: 0 }
+        };
+      case 'bottom-left':
+        return {
+          initial: { x: -100, opacity: 0 },
+          animate: { x: 0, opacity: 1 },
+          exit: { x: -100, opacity: 0 }
+        };
+      case 'inline':
+        return {
+          initial: { y: -20, opacity: 0 },
+          animate: { y: 0, opacity: 1 },
+          exit: { y: -20, opacity: 0 }
+        };
+      default:
+        return {
+          initial: { y: -100, opacity: 0 },
+          animate: { y: 0, opacity: 1 },
+          exit: { y: -100, opacity: 0 }
+        };
+    }
+  };
+
   return (
     <AnimatePresence>
       {isVisible && message && (
         <motion.div
-          initial={{ y: -100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -100, opacity: 0 }}
+          {...getAnimationProps()}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-          className="fixed top-0 left-0 right-0 z-40 p-4 pointer-events-none"
+          className={`${getPositionClasses()} p-4 pointer-events-none`}
         >
           <div
-            className="max-w-lg mx-auto bg-gradient-to-r from-purple-900/95 via-indigo-900/95 to-purple-900/95
+            className={`${position === 'inline' || position === 'top' ? 'max-w-lg mx-auto' : ''} 
+                       bg-gradient-to-r from-purple-900/95 via-indigo-900/95 to-purple-900/95
                        backdrop-blur-sm rounded-xl border border-purple-500/30 shadow-2xl shadow-purple-500/20
-                       pointer-events-auto cursor-pointer"
+                       pointer-events-auto cursor-pointer`}
             onClick={() => {
               setIsVisible(false);
               onDismiss?.();

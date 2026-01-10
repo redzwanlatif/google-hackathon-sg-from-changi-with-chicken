@@ -51,7 +51,7 @@ export function ChickenBubble({
           initial={{ opacity: 0, y: 20, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 10, scale: 0.9 }}
-          className="fixed bottom-44 right-4 z-30 max-w-xs"
+          className="fixed bottom-[480px] right-4 z-30 max-w-xs"
         >
           {/* Speech bubble */}
           <div className="relative">
@@ -74,25 +74,7 @@ export function ChickenBubble({
             </div>
 
             {/* Tail pointing to chicken */}
-            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-amber-100 border-b-2 border-r-2 border-amber-400 transform rotate-45" />
-          </div>
-
-          {/* Chicken indicator */}
-          <div className="flex justify-end mt-2 mr-2">
-            <motion.div
-              animate={{
-                y: [0, -3, 0],
-                rotate: [-5, 5, -5]
-              }}
-              transition={{
-                duration: 0.5,
-                repeat: Infinity,
-                repeatType: 'reverse'
-              }}
-              className="text-3xl"
-            >
-              {getChickenEmoji()}
-            </motion.div>
+            <div className="absolute -bottom-2 right-32 w-4 h-4 bg-amber-100 border-b-2 border-r-2 border-amber-400 transform rotate-45" />
           </div>
         </motion.div>
       )}

@@ -1,10 +1,108 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NPCId } from '@/lib/game-state';
 import { getNPCConfig } from '@/lib/npc-configs';
 import Image from 'next/image';
+import { ComicSpeechBubble, ThinkingBubble } from './ComicSpeechBubble';
+import { soundManager } from '@/lib/sound-manager';
+
+// NPC emotion types
+type NPCEmotion = 'default' | 'happy' | 'angry' | 'shocked' | 'talking' | 'funny';
+
+// Character portrait assets mapping
+const NPC_PORTRAITS: Record<NPCId, Partial<Record<NPCEmotion, string>>> = {
+  'airport-auntie': {
+    default: '/assets/characters/cleaner.png',
+    talking: '/assets/characters/cleaner.png',
+  },
+  'auntie-mei': {
+    default: '/assets/characters/auntie_mei_default.png',
+    angry: '/assets/characters/auntie_mei_angry.png',
+    happy: '/assets/characters/auntie_mei_happy.png',
+    talking: '/assets/characters/auntie_mei_default.png',
+  },
+  'grab-uncle': {
+    default: '/assets/characters/muthu_deafult.png',
+    shocked: '/assets/characters/muthu_shocked.png',
+    talking: '/assets/characters/muthu_talking.png',
+    happy: '/assets/characters/grab_uncle_1.png',
+  },
+  'ah-beng': {
+    default: '/assets/characters/nsman_default.png',
+    funny: '/assets/characters/nsman_funnyface.png',
+    happy: '/assets/characters/nsman_happy.png',
+  },
+  'jessica': {
+    default: '/assets/characters/jesicca_shouting.png',
+    angry: '/assets/characters/jesicca_shouting.png',
+    shocked: '/assets/characters/jesicca_shocked.png',
+    happy: '/assets/characters/jesicca_relieved.png',
+  },
+  'security-guard': {
+    default: '/assets/characters/guard.png',
+  },
+  'marcus': {
+    default: '/assets/characters/marcus.png',
+    happy: '/assets/characters/marcus.png',
+  },
+};
+
+// Detect emotion from transcript text
+function detectEmotionFromText(text: string): NPCEmotion {
+  const lowerText = text.toLowerCase();
+
+  // Angry indicators
+  if (
+    lowerText.includes('aiyoh') ||
+    lowerText.includes('wah lao') ||
+    lowerText.includes('!') && lowerText.includes('?') ||
+    lowerText.includes('angry') ||
+    lowerText.includes('$50') ||
+    lowerText.includes('owe')
+  ) {
+    return 'angry';
+  }
+
+  // Shocked indicators
+  if (
+    lowerText.includes('alamak') ||
+    lowerText.includes('siao') ||
+    lowerText.includes('what') ||
+    lowerText.includes('!!')
+  ) {
+    return 'shocked';
+  }
+
+  // Happy indicators
+  if (
+    lowerText.includes('shiok') ||
+    lowerText.includes('can lah') ||
+    lowerText.includes('nice') ||
+    lowerText.includes('good') ||
+    lowerText.includes('best man') ||
+    lowerText.includes('remember')
+  ) {
+    return 'happy';
+  }
+
+  // Funny/playful indicators
+  if (
+    lowerText.includes('haha') ||
+    lowerText.includes('bro') ||
+    lowerText.includes('funny')
+  ) {
+    return 'funny';
+  }
+
+  // Default to talking if there's text
+  if (text.length > 0) {
+    return 'talking';
+  }
+
+  return 'default';
+}
 
 interface NPCCardProps {
   npcId: NPCId;
@@ -15,49 +113,82 @@ interface NPCCardProps {
 
 export function NPCCard({ npcId, transcript, isThinking, onPortraitClick }: NPCCardProps) {
   const npcConfig = getNPCConfig(npcId);
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [currentEmotion, setCurrentEmotion] = useState<NPCEmotion>('default');
+  const [showPortraitPop, setShowPortraitPop] = useState(false);
 
-  // Typewriter effect for transcript
+  // Detect emotion from transcript
   useEffect(() => {
-    if (!transcript) {
-      setDisplayedText('');
-      return;
+    if (transcript) {
+      const emotion = detectEmotionFromText(transcript);
+      setCurrentEmotion(emotion);
+
+      // Pop effect on emotion change
+      setShowPortraitPop(true);
+      setTimeout(() => setShowPortraitPop(false), 300);
+    } else {
+      setCurrentEmotion('default');
     }
-
-    setIsTyping(true);
-    setDisplayedText('');
-
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < transcript.length) {
-        setDisplayedText(transcript.slice(0, index + 1));
-        index++;
-      } else {
-        setIsTyping(false);
-        clearInterval(interval);
-      }
-    }, 30); // 30ms per character
-
-    return () => clearInterval(interval);
   }, [transcript]);
 
+  // Get current portrait based on emotion
+  const currentPortrait = useMemo(() => {
+    const portraits = NPC_PORTRAITS[npcId];
+    return portraits[currentEmotion] || portraits.default || portraits.talking;
+  }, [npcId, currentEmotion]);
+
+  // Portrait frame color based on emotion
+  const emotionFrameColor = {
+    default: 'from-yellow-400 to-orange-400',
+    happy: 'from-green-400 to-emerald-400',
+    angry: 'from-red-500 to-red-600',
+    shocked: 'from-purple-400 to-pink-400',
+    talking: 'from-blue-400 to-cyan-400',
+    funny: 'from-pink-400 to-yellow-400',
+  }[currentEmotion];
+
+  // Portrait effect class
+  const emotionEffectClass = {
+    default: '',
+    happy: 'portrait-happy',
+    angry: 'portrait-angry',
+    shocked: 'portrait-shocked',
+    talking: '',
+    funny: 'portrait-happy',
+  }[currentEmotion];
+
+  // Determine speech bubble type
+  const bubbleType = currentEmotion === 'angry' || currentEmotion === 'shocked'
+    ? 'shout'
+    : 'speech';
+
   return (
-    <div className="flex flex-col items-center">
-      {/* NPC Portrait */}
+    <div className="flex flex-col items-center gap-6">
+      {/* NPC Portrait - Comic Style */}
       <motion.div
-        className="relative w-32 h-32 mb-4 cursor-pointer"
+        className={`
+          relative w-56 h-56 cursor-pointer
+          comic-portrait rounded-lg overflow-hidden
+          bg-gradient-to-br ${emotionFrameColor}
+          ${emotionEffectClass}
+        `}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={onPortraitClick}
+        animate={showPortraitPop ? { scale: [1, 1.1, 1] } : {}}
+        transition={{ duration: 0.3 }}
       >
-        {/* Portrait background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-yellow-200 to-orange-300 rounded-full" />
-
-        {/* Portrait image (placeholder until assets are generated) */}
-        <div className="absolute inset-2 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden pixel-art">
-          {/* TODO: Replace with actual image once assets are ready */}
-          <div className="text-6xl">
+        {/* Portrait image */}
+        {currentPortrait ? (
+          <Image
+            src={currentPortrait}
+            alt={npcConfig.name}
+            fill
+            className="object-cover"
+            priority
+          />
+        ) : (
+          // Fallback emoji
+          <div className="absolute inset-0 flex items-center justify-center text-6xl bg-gray-200">
             {npcId === 'airport-auntie' && '🧹'}
             {npcId === 'auntie-mei' && '🍜'}
             {npcId === 'grab-uncle' && '🚗'}
@@ -66,80 +197,80 @@ export function NPCCard({ npcId, transcript, isThinking, onPortraitClick }: NPCC
             {npcId === 'security-guard' && '🛡️'}
             {npcId === 'marcus' && '🤵'}
           </div>
-        </div>
+        )}
+
+        {/* Comic frame overlay */}
+        <div className="absolute inset-0 pointer-events-none comic-portrait-frame" />
+
+        {/* Emotion indicator badge */}
+        <AnimatePresence>
+          {currentEmotion !== 'default' && currentEmotion !== 'talking' && (
+            <motion.div
+              initial={{ scale: 0, rotate: -30 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, rotate: 30 }}
+              className="absolute -top-2 -right-2 w-10 h-10 bg-white border-3 border-black rounded-full flex items-center justify-center text-xl shadow-lg z-10"
+            >
+              {currentEmotion === 'happy' && '😊'}
+              {currentEmotion === 'angry' && '😠'}
+              {currentEmotion === 'shocked' && '😱'}
+              {currentEmotion === 'funny' && '🤪'}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Thinking indicator */}
         <AnimatePresence>
-          {isThinking && (
+          {isThinking && !transcript && (
             <motion.div
               initial={{ opacity: 0, scale: 0 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0 }}
-              className="absolute -top-2 -right-2 bg-yellow-400 rounded-full p-2"
+              className="absolute -bottom-2 -right-2 bg-yellow-400 rounded-full p-2 border-2 border-black"
             >
               <motion.span
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                className="text-xl"
+                className="text-xl block"
               >
                 💭
               </motion.span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Speed lines for angry emotion */}
+        {currentEmotion === 'angry' && (
+          <div className="absolute inset-0 impact-lines pointer-events-none opacity-30" />
+        )}
       </motion.div>
 
-      {/* NPC Name */}
-      <div className="text-white font-bold text-lg mb-2">{npcConfig.name}</div>
+      {/* NPC Name Banner */}
+      <motion.div
+        className="relative px-8 py-3 bg-[#E23636] text-white border-3 border-black shadow-[4px_4px_0px_#1a1a1a] text-xl"
+        style={{ fontFamily: 'Bangers, cursive', letterSpacing: '1px' }}
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+      >
+        {npcConfig.name.toUpperCase()}
+        {/* Decorative corners */}
+        <div className="absolute -top-1 -left-1 w-3 h-3 bg-yellow-400 border-2 border-black" />
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 border-2 border-black" />
+      </motion.div>
 
       {/* Speech Bubble */}
       <AnimatePresence mode="wait">
-        {(displayedText || isThinking) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.9 }}
-            className="speech-bubble relative bg-white rounded-2xl p-4 max-w-md shadow-lg"
-          >
-            {/* Speech bubble tail */}
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white" />
-
-            {isThinking && !displayedText ? (
-              <div className="flex gap-1">
-                <motion.span
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
-                >
-                  •
-                </motion.span>
-                <motion.span
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
-                >
-                  •
-                </motion.span>
-                <motion.span
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
-                >
-                  •
-                </motion.span>
-              </div>
-            ) : (
-              <p className="text-gray-800 text-lg">
-                {displayedText}
-                {isTyping && (
-                  <motion.span
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                  >
-                    |
-                  </motion.span>
-                )}
-              </p>
-            )}
-          </motion.div>
-        )}
+        {isThinking && !transcript ? (
+          <ThinkingBubble key="thinking" />
+        ) : transcript ? (
+          <ComicSpeechBubble
+            key="speech"
+            text={transcript}
+            type={bubbleType}
+            speakerName={npcConfig.name.split(' ')[0]}
+            position="top"
+          />
+        ) : null}
       </AnimatePresence>
     </div>
   );

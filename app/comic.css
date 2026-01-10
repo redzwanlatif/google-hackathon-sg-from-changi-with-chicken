@@ -1,0 +1,743 @@
+/* ===========================================
+   MARVEL COMIC BOOK STYLE - THE CHICKEN MUST ARRIVE
+   =========================================== */
+
+/* Comic Book Fonts loaded via Next.js in layout.tsx */
+
+:root {
+  /* Comic Color Palette */
+  --comic-yellow: #FFE135;
+  --comic-red: #E23636;
+  --comic-blue: #2B4C7E;
+  --comic-cyan: #4ECDC4;
+  --comic-orange: #FF6B35;
+  --comic-pink: #FF69B4;
+  --comic-black: #1a1a1a;
+  --comic-white: #FFFEF2;
+
+  /* Panel styling */
+  --panel-border: 4px solid var(--comic-black);
+  --panel-shadow: 6px 6px 0px var(--comic-black);
+
+  /* Speech bubble */
+  --bubble-bg: var(--comic-white);
+  --bubble-border: 3px solid var(--comic-black);
+}
+
+/* ============ BEN-DAY DOTS PATTERN ============ */
+.benday-dots {
+  position: relative;
+}
+
+.benday-dots::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.15) 1px, transparent 1px);
+  background-size: 4px 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.benday-dots-light::before {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px);
+}
+
+/* Halftone gradient effect */
+.halftone-gradient {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 20%, var(--comic-yellow) 21%, var(--comic-yellow) 34%, transparent 35%),
+    radial-gradient(circle at 0% 50%, transparent 20%, var(--comic-red) 21%, var(--comic-red) 34%, transparent 35%);
+  background-size: 8px 8px;
+}
+
+/* ============ COMIC PANELS ============ */
+.comic-panel {
+  border: var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  background: var(--comic-white);
+  position: relative;
+  overflow: hidden;
+}
+
+.comic-panel-red {
+  background: linear-gradient(135deg, var(--comic-red) 0%, #ff4444 100%);
+}
+
+.comic-panel-yellow {
+  background: linear-gradient(135deg, var(--comic-yellow) 0%, #ffeb3b 100%);
+}
+
+.comic-panel-blue {
+  background: linear-gradient(135deg, var(--comic-blue) 0%, #3d5a80 100%);
+}
+
+/* ============ SPEED LINES ============ */
+.speed-lines {
+  position: relative;
+}
+
+.speed-lines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  animation: speed-move 0.1s linear infinite;
+}
+
+@keyframes speed-move {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(4px); }
+}
+
+/* Radial speed lines for impact */
+.impact-lines {
+  position: relative;
+}
+
+.impact-lines::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    transparent 0deg 8deg,
+    rgba(0,0,0,0.05) 8deg 10deg
+  );
+  pointer-events: none;
+  animation: impact-spin 20s linear infinite;
+}
+
+@keyframes impact-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============ SPEECH BUBBLES ============ */
+.comic-speech-bubble {
+  background: var(--bubble-bg);
+  border: var(--bubble-border);
+  border-radius: 20px;
+  padding: 16px 20px;
+  position: relative;
+  font-family: var(--font-comic-neue), 'Comic Neue', cursive;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--comic-black);
+  box-shadow: 4px 4px 0px var(--comic-black);
+}
+
+/* Tail for speech bubble */
+.comic-speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 30px;
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 20px solid var(--comic-black);
+}
+
+.comic-speech-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 33px;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 17px solid var(--bubble-bg);
+  z-index: 1;
+}
+
+/* Shout/Exclamation bubble - jagged edges */
+.comic-shout-bubble {
+  background: var(--comic-yellow);
+  border: 3px solid var(--comic-black);
+  padding: 20px 24px;
+  position: relative;
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 1.4rem;
+  color: var(--comic-black);
+  letter-spacing: 1px;
+  clip-path: polygon(
+    0% 10%, 5% 0%, 15% 8%, 25% 0%, 35% 6%, 45% 0%, 55% 8%, 65% 0%, 75% 6%, 85% 0%, 95% 8%, 100% 0%,
+    100% 90%, 95% 100%, 85% 92%, 75% 100%, 65% 94%, 55% 100%, 45% 92%, 35% 100%, 25% 94%, 15% 100%, 5% 92%, 0% 100%
+  );
+  animation: shout-shake 0.1s ease-in-out infinite;
+}
+
+@keyframes shout-shake {
+  0%, 100% { transform: rotate(-0.5deg); }
+  50% { transform: rotate(0.5deg); }
+}
+
+/* Thought bubble */
+.comic-thought-bubble {
+  background: var(--bubble-bg);
+  border: var(--bubble-border);
+  border-radius: 50%;
+  padding: 20px;
+  position: relative;
+  font-family: var(--font-comic-neue), 'Comic Neue', cursive;
+  font-style: italic;
+}
+
+.comic-thought-bubble::after,
+.comic-thought-bubble::before {
+  content: '';
+  position: absolute;
+  background: var(--bubble-bg);
+  border: var(--bubble-border);
+  border-radius: 50%;
+}
+
+.comic-thought-bubble::after {
+  width: 20px;
+  height: 20px;
+  bottom: -15px;
+  left: 25px;
+}
+
+.comic-thought-bubble::before {
+  width: 12px;
+  height: 12px;
+  bottom: -28px;
+  left: 15px;
+  z-index: 1;
+}
+
+/* ============ ACTION TEXT ============ */
+.action-text {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 3rem;
+  color: var(--comic-yellow);
+  text-shadow:
+    3px 3px 0 var(--comic-black),
+    -1px -1px 0 var(--comic-black),
+    1px -1px 0 var(--comic-black),
+    -1px 1px 0 var(--comic-black),
+    4px 4px 0 var(--comic-red);
+  letter-spacing: 2px;
+  transform: rotate(-5deg);
+  animation: action-pop 0.3s ease-out;
+}
+
+.action-text-red {
+  color: var(--comic-red);
+  text-shadow:
+    3px 3px 0 var(--comic-black),
+    -1px -1px 0 var(--comic-black),
+    1px -1px 0 var(--comic-black),
+    -1px 1px 0 var(--comic-black),
+    4px 4px 0 var(--comic-yellow);
+}
+
+.action-text-cyan {
+  color: var(--comic-cyan);
+  text-shadow:
+    3px 3px 0 var(--comic-black),
+    -1px -1px 0 var(--comic-black),
+    1px -1px 0 var(--comic-black),
+    -1px 1px 0 var(--comic-black),
+    4px 4px 0 var(--comic-blue);
+}
+
+@keyframes action-pop {
+  0% {
+    transform: scale(0) rotate(-20deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(-5deg);
+    opacity: 1;
+  }
+}
+
+@keyframes action-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-3deg);
+  }
+}
+
+/* ============ CHARACTER PORTRAITS ============ */
+.comic-portrait {
+  border: 4px solid var(--comic-black);
+  box-shadow: 5px 5px 0px var(--comic-black);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--comic-yellow) 0%, var(--comic-orange) 100%);
+}
+
+.comic-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comic-portrait-frame {
+  position: absolute;
+  inset: 0;
+  border: 8px solid transparent;
+  border-image: repeating-linear-gradient(
+    45deg,
+    var(--comic-black) 0,
+    var(--comic-black) 2px,
+    var(--comic-yellow) 2px,
+    var(--comic-yellow) 4px
+  ) 8;
+  pointer-events: none;
+}
+
+/* Portrait emotion glow effects */
+.portrait-happy {
+  box-shadow:
+    5px 5px 0px var(--comic-black),
+    0 0 20px var(--comic-yellow),
+    0 0 40px rgba(255, 225, 53, 0.5);
+}
+
+.portrait-angry {
+  box-shadow:
+    5px 5px 0px var(--comic-black),
+    0 0 20px var(--comic-red),
+    0 0 40px rgba(226, 54, 54, 0.5);
+  animation: angry-shake 0.1s ease-in-out infinite;
+}
+
+@keyframes angry-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.portrait-shocked {
+  animation: shocked-bounce 0.3s ease-in-out;
+}
+
+@keyframes shocked-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* ============ SWOOSH TRANSITIONS ============ */
+.swoosh-enter {
+  animation: swoosh-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes swoosh-in {
+  0% {
+    transform: translateX(-100%) rotate(-10deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(10%) rotate(2deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0);
+    opacity: 1;
+  }
+}
+
+.swoosh-exit {
+  animation: swoosh-out 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+@keyframes swoosh-out {
+  0% {
+    transform: translateX(0) rotate(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%) rotate(10deg);
+    opacity: 0;
+  }
+}
+
+/* Page transition overlay */
+.comic-wipe {
+  position: fixed;
+  inset: 0;
+  background: var(--comic-yellow);
+  z-index: 9999;
+  transform: translateX(-100%);
+}
+
+.comic-wipe.active {
+  animation: wipe-across 0.6s ease-in-out;
+}
+
+@keyframes wipe-across {
+  0% { transform: translateX(-100%); }
+  45% { transform: translateX(0%); }
+  55% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ============ COMIC BUTTONS ============ */
+.comic-button {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+  padding: 12px 24px;
+  background: var(--comic-yellow);
+  color: var(--comic-black);
+  border: 3px solid var(--comic-black);
+  box-shadow: 4px 4px 0px var(--comic-black);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  overflow: hidden;
+}
+
+.comic-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--comic-black);
+}
+
+.comic-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--comic-black);
+}
+
+.comic-button-red {
+  background: var(--comic-red);
+  color: var(--comic-white);
+}
+
+.comic-button-blue {
+  background: var(--comic-blue);
+  color: var(--comic-white);
+}
+
+/* ============ COMIC HUD BOXES ============ */
+.comic-hud-box {
+  background: var(--comic-white);
+  border: 3px solid var(--comic-black);
+  box-shadow: 4px 4px 0px var(--comic-black);
+  font-family: var(--font-comic-neue), 'Comic Neue', cursive;
+  position: relative;
+}
+
+.comic-hud-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: var(--comic-red);
+  border-bottom: 2px solid var(--comic-black);
+}
+
+.comic-hud-label {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 0.9rem;
+  color: var(--comic-white);
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  letter-spacing: 1px;
+}
+
+.comic-hud-value {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 1.8rem;
+  color: var(--comic-black);
+  padding-top: 28px;
+  padding-left: 8px;
+}
+
+/* ============ LOCATION BACKGROUNDS ============ */
+.comic-location-bg {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+}
+
+.comic-location-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.5) 100%),
+    radial-gradient(circle, rgba(0,0,0,0.1) 1px, transparent 1px);
+  background-size: 100% 100%, 3px 3px;
+  pointer-events: none;
+}
+
+/* ============ STARBURST EFFECT ============ */
+.starburst {
+  position: relative;
+}
+
+.starburst::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: conic-gradient(
+    from 0deg,
+    var(--comic-yellow) 0deg 15deg,
+    var(--comic-orange) 15deg 30deg,
+    var(--comic-yellow) 30deg 45deg,
+    var(--comic-orange) 45deg 60deg,
+    var(--comic-yellow) 60deg 75deg,
+    var(--comic-orange) 75deg 90deg,
+    var(--comic-yellow) 90deg 105deg,
+    var(--comic-orange) 105deg 120deg,
+    var(--comic-yellow) 120deg 135deg,
+    var(--comic-orange) 135deg 150deg,
+    var(--comic-yellow) 150deg 165deg,
+    var(--comic-orange) 165deg 180deg,
+    var(--comic-yellow) 180deg 195deg,
+    var(--comic-orange) 195deg 210deg,
+    var(--comic-yellow) 210deg 225deg,
+    var(--comic-orange) 225deg 240deg,
+    var(--comic-yellow) 240deg 255deg,
+    var(--comic-orange) 255deg 270deg,
+    var(--comic-yellow) 270deg 285deg,
+    var(--comic-orange) 285deg 300deg,
+    var(--comic-yellow) 300deg 315deg,
+    var(--comic-orange) 315deg 330deg,
+    var(--comic-yellow) 330deg 345deg,
+    var(--comic-orange) 345deg 360deg
+  );
+  animation: starburst-spin 10s linear infinite;
+  z-index: -1;
+}
+
+@keyframes starburst-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============ COMIC TIMER ============ */
+.comic-timer {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 2.5rem;
+  background: var(--comic-red);
+  color: var(--comic-white);
+  padding: 8px 20px;
+  border: 4px solid var(--comic-black);
+  box-shadow: 5px 5px 0px var(--comic-black);
+  clip-path: polygon(
+    0% 0%, 95% 0%, 100% 50%, 95% 100%, 0% 100%, 5% 50%
+  );
+}
+
+.comic-timer.urgent {
+  animation: timer-pulse 0.5s ease-in-out infinite;
+  background: linear-gradient(45deg, var(--comic-red), var(--comic-orange));
+}
+
+@keyframes timer-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ============ CHICKEN MOOD INDICATOR ============ */
+.chicken-mood-bar {
+  height: 12px;
+  background: var(--comic-black);
+  border: 2px solid var(--comic-black);
+  position: relative;
+  overflow: hidden;
+}
+
+.chicken-mood-fill {
+  height: 100%;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.mood-happy { background: linear-gradient(90deg, #4CAF50, #8BC34A); }
+.mood-neutral { background: linear-gradient(90deg, var(--comic-yellow), var(--comic-orange)); }
+.mood-upset { background: linear-gradient(90deg, var(--comic-orange), var(--comic-red)); }
+.mood-furious { background: linear-gradient(90deg, var(--comic-red), #8B0000); }
+
+/* ============ NARRATIVE BOX ============ */
+.narrative-box {
+  background: var(--comic-yellow);
+  border: 3px solid var(--comic-black);
+  padding: 12px 16px;
+  font-family: var(--font-comic-neue), 'Comic Neue', cursive;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--comic-black);
+  position: relative;
+  box-shadow: 4px 4px 0px var(--comic-black);
+}
+
+.narrative-box::before {
+  content: 'NARRATOR';
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  background: var(--comic-red);
+  color: var(--comic-white);
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-style: normal;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: 2px solid var(--comic-black);
+}
+
+/* ============ MEMORY FRAGMENT ============ */
+.memory-fragment {
+  background: linear-gradient(135deg, #9C27B0, #673AB7);
+  border: 3px solid var(--comic-black);
+  box-shadow: 4px 4px 0px var(--comic-black);
+  padding: 4px;
+  position: relative;
+}
+
+.memory-fragment.unlocked {
+  animation: memory-glow 2s ease-in-out infinite;
+}
+
+@keyframes memory-glow {
+  0%, 100% { box-shadow: 4px 4px 0px var(--comic-black), 0 0 10px #9C27B0; }
+  50% { box-shadow: 4px 4px 0px var(--comic-black), 0 0 25px #9C27B0, 0 0 40px rgba(156, 39, 176, 0.5); }
+}
+
+.memory-fragment.locked {
+  background: #333;
+  opacity: 0.5;
+}
+
+/* ============ VOICE BUTTON COMIC STYLE ============ */
+.comic-voice-button {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 5px solid var(--comic-black);
+  box-shadow: 6px 6px 0px var(--comic-black);
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.comic-voice-button::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    transparent 0deg 10deg,
+    rgba(255,255,255,0.1) 10deg 20deg
+  );
+  animation: voice-rays 3s linear infinite;
+}
+
+@keyframes voice-rays {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.comic-voice-button.listening {
+  background: var(--comic-red);
+  animation: voice-pulse-comic 1s ease-in-out infinite;
+}
+
+@keyframes voice-pulse-comic {
+  0%, 100% {
+    box-shadow: 6px 6px 0px var(--comic-black), 0 0 0 0 rgba(226, 54, 54, 0.7);
+  }
+  50% {
+    box-shadow: 6px 6px 0px var(--comic-black), 0 0 0 20px rgba(226, 54, 54, 0);
+  }
+}
+
+/* ============ SINGLISH PARTICLES ============ */
+.singlish-particle {
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  font-size: 1.5rem;
+  color: var(--comic-yellow);
+  text-shadow: 2px 2px 0 var(--comic-black);
+  position: absolute;
+  animation: particle-float 2s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes particle-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(1.5);
+  }
+}
+
+/* ============ QUEST BADGE ============ */
+.quest-badge {
+  background: var(--comic-orange);
+  border: 3px solid var(--comic-black);
+  box-shadow: 3px 3px 0px var(--comic-black);
+  font-family: var(--font-bangers), 'Bangers', cursive;
+  padding: 8px 16px;
+  color: var(--comic-white);
+  animation: quest-bounce 1s ease-in-out infinite;
+}
+
+@keyframes quest-bounce {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-5px) rotate(2deg); }
+}
+
+/* ============ SCREEN SHAKE ============ */
+.screen-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+/* ============ COMIC BORDER DECORATION ============ */
+.comic-border-deco {
+  position: relative;
+}
+
+.comic-border-deco::before,
+.comic-border-deco::after {
+  content: '';
+  position: absolute;
+  background: var(--comic-black);
+}
+
+.comic-border-deco::before {
+  top: -8px;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+}
+
+.comic-border-deco::after {
+  bottom: -8px;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+}

@@ -37,7 +37,7 @@ export const NPC_CONFIGS: Record<NPCId, NPCConfig> = {
     voice: 'Kore',
     portrait: '/assets/characters/airport_auntie.png',
     systemPrompt: `## Audio Profile
-You are Auntie Rosiah, a 50-year-old Malay Singaporean cleaner auntie at Changi Airport Terminal 3. You are warm, caring, a bit nosy, and love to help people. You call everyone "ah boy" or "ah girl".
+You are Auntie Rosiah, a 50-year-old Malay Singaporean cleaner auntie at Changi Airport Terminal 3. You are warm, caring, a bit nosy, and love to help people.
 
 ## Scene
 It's early morning at Changi Airport Terminal 3. You just found a confused young person who slept on a bench all night, and they're holding a live chicken! You overheard them mumbling "Maxwell" and "Jessica" in their sleep.
@@ -145,10 +145,11 @@ ${SINGLISH_CONTEXT}
 PERSONALITY: Bro energy, enthusiastic, uses a lot of "bro" and army slang.
 Very supportive once you recognize the player.
 
-CAMERA QUEST: For good luck at the wedding, ask them to show something RED! Say things like:
-- "Bro! Wedding must have huat ah! Show me something RED for good luck! Use camera!"
-- "Eh bro, before I tell you where to go, show me angpao or something red lah! Take photo!"
-- "Red is lucky bro! Show me something red with your phone camera, then I help you!"
+DRUM CHALLENGE QUEST: For good luck at the wedding, challenge them to play the Chinese wedding drum! Say things like:
+- "Bro! Wedding need blessing! You must beat the Chinese drum! Got game on your phone - try the Drum Challenge!"
+- "Eh bro, before I tell you where, you must do the wedding drum! Press the button, use your hands to hit left and right!"
+- "Show me you got rhythm bro! Do the Drum Challenge - move hands left and right to hit the beats!"
+- "Chinese wedding must have drums! Play the game, show me you can drum!"
 
 AFTER QUEST COMPLETE - Only then reveal:
 - "NICE BRO! Okay okay I remember you now - you're Marcus's best man!"
@@ -240,8 +241,9 @@ export function getNPCSystemPrompt(npcId: NPCId, gameContext?: string): string {
   const config = NPC_CONFIGS[npcId];
   let prompt = config.systemPrompt;
 
+  // Add game context at the BEGINNING so overrides are seen first
   if (gameContext) {
-    prompt += `\n\nCURRENT GAME CONTEXT:\n${gameContext}`;
+    prompt = gameContext + '\n\n' + prompt;
   }
 
   return prompt;

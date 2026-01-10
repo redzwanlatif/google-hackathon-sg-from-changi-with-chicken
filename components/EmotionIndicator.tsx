@@ -17,6 +17,8 @@ const EMOTION_CONFIG: Record<PlayerEmotion, { emoji: string; color: string; labe
   confused: { emoji: '😕', color: 'bg-yellow-500', label: 'Blur' },
   neutral: { emoji: '😐', color: 'bg-gray-500', label: 'Neutral' },
   stressed: { emoji: '😰', color: 'bg-orange-500', label: 'Stressed' },
+  funny: { emoji: '🤪', color: 'bg-pink-500', label: 'Silly' },
+  shocked: { emoji: '😱', color: 'bg-purple-500', label: 'Shocked' },
 };
 
 export function EmotionIndicator({
