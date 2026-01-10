@@ -3,55 +3,50 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/contexts/GameContext';
-import { useGeminiLive } from '@/hooks/useGeminiLive';
+import { useBrowserVoiceChat } from '@/hooks/useBrowserVoiceChat';
 import { GameHUD } from '@/components/GameHUD';
 import { NPCCard } from '@/components/NPCCard';
 import { ChickenWidget } from '@/components/ChickenWidget';
 import { TextInput } from '@/components/TextInput';
 import { LOCATION_INFO } from '@/lib/game-state';
-import { getNPCConfig, getNPCSystemPrompt } from '@/lib/npc-configs';
+import { getNPCConfig, getNPCSystemPrompt, getNPCPersona } from '@/lib/npc-configs';
 
 export default function GamePage() {
   const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding } = useGame();
   const [showDebug, setShowDebug] = useState(false);
   const [showTravelMenu, setShowTravelMenu] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
   const [unlockNotification, setUnlockNotification] = useState<string | null>(null);
+  const [textInput, setTextInput] = useState('');
 
   // Get NPC config
   const npcConfig = state.currentNpc ? getNPCConfig(state.currentNpc) : null;
   const systemPrompt = state.currentNpc ? getNPCSystemPrompt(state.currentNpc) : '';
 
-  // Gemini Live API
+  // Get NPC voice and persona for Singlish accent
+  const npcVoice = npcConfig?.voice || 'Kore';
+  const npcPersona = state.currentNpc ? getNPCPersona(state.currentNpc) : 'auntie';
+
+  // Browser Voice Chat (Speech Recognition + Gemini Text API + Gemini TTS with Singlish accent)
   const {
     status,
-    isRecording,
-    isSpeaking,
-    transcript,
+    userTranscript,
+    aiTranscript,
     error,
-    connect,
-    disconnect,
-    startRecording,
-    stopRecording,
-  } = useGeminiLive({
+    startListening,
+    stopListening,
+    stopSpeaking,
+    sendText,
+    resetConversation,
+  } = useBrowserVoiceChat({
     apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
     systemInstruction: systemPrompt,
-    voice: npcConfig?.voice || 'Kore',
+    voice: npcVoice,
+    persona: npcPersona,
     onTranscript: (text) => {
       setCurrentTranscript(text);
-      // Accumulate transcript for better keyword detection
-      setAccumulatedTranscript(prev => {
-        const newAccumulated = prev + ' ' + text;
-        console.log('[GamePage] Accumulated transcript length:', newAccumulated.length);
-        checkForMemoryUnlock(newAccumulated);
-        return newAccumulated;
-      });
-    },
-    onTurnComplete: () => {
-      // Note: Audio might still be playing, don't reset state here
-      // Reset accumulated transcript for next turn
-      setAccumulatedTranscript('');
+      console.log('[GamePage] AI transcript received:', text.substring(0, 100));
+      checkForMemoryUnlock(text);
     },
   });
 
@@ -62,114 +57,149 @@ export default function GamePage() {
     }
   }, [state.gameStarted, startGame]);
 
-  // Connect to Gemini Live when NPC changes
+  // Reset conversation when NPC changes
   useEffect(() => {
     if (state.currentNpc && state.gameStarted && !state.gameOver) {
-      console.log('[GamePage] Attempting to connect to Gemini Live for NPC:', state.currentNpc);
-      connect();
-      return () => {
-        console.log('[GamePage] Disconnecting from Gemini Live');
-        disconnect();
-      };
+      console.log('[GamePage] NPC changed to:', state.currentNpc);
+      resetConversation();
+      setCurrentTranscript('');
     }
-  }, [state.currentNpc, state.gameStarted, state.gameOver, connect, disconnect]);
-
-  // Update transcript display
-  useEffect(() => {
-    if (transcript) {
-      setCurrentTranscript(transcript);
-    }
-  }, [transcript]);
+  }, [state.currentNpc, state.gameStarted, state.gameOver, resetConversation]);
 
   // Use a ref to track unlocked memory IDs to prevent duplicates
   const unlockedMemoryIdsRef = useRef<Set<string>>(new Set());
+
+  // Track quest completion
+  const questCompleteRef = useRef<Set<string>>(new Set());
 
   const checkForMemoryUnlock = useCallback((text: string) => {
     const lowerText = text.toLowerCase();
     const currentNpc = state.currentNpc;
     const unlockedIds = unlockedMemoryIdsRef.current;
+    const quests = questCompleteRef.current;
 
     console.log('[Memory] Checking transcript:', lowerText.substring(0, 150));
-    console.log('[Memory] Current NPC:', currentNpc, 'Already unlocked:', Array.from(unlockedIds));
+    console.log('[Memory] Current NPC:', currentNpc, 'Quests done:', Array.from(quests));
 
     const showNotification = (text: string, location: string) => {
       setUnlockNotification(`🧠 ${text}\n🔓 ${location} unlocked!`);
       setTimeout(() => setUnlockNotification(null), 4000);
     };
 
-    if (currentNpc === 'airport-auntie' && lowerText.includes('maxwell') && !unlockedIds.has('memory-1')) {
-      console.log('[Memory] ✓ Unlocking memory-1: Maxwell!');
-      unlockedIds.add('memory-1');
-      unlockMemory({
-        id: 'memory-1',
-        text: 'Maxwell Food Centre... why does that feel important?',
-        unlockedBy: 'airport-auntie',
-        unlockedAt: Date.now(),
-      });
-      showNotification('Memory unlocked: Maxwell Food Centre', 'Maxwell Food Centre');
+    // Memory 1: Airport Auntie mentions Maxwell (no quest needed - tutorial)
+    if (currentNpc === 'airport-auntie' && !unlockedIds.has('memory-1')) {
+      if (lowerText.includes('maxwell') || lowerText.includes('food centre') || lowerText.includes('hawker')) {
+        console.log('[Memory] ✓ Unlocking memory-1: Maxwell!');
+        unlockedIds.add('memory-1');
+        unlockMemory({
+          id: 'memory-1',
+          text: 'Maxwell Food Centre... why does that feel important?',
+          unlockedBy: 'airport-auntie',
+          unlockedAt: Date.now(),
+        });
+        showNotification('Memory unlocked: Maxwell Food Centre', 'Maxwell Food Centre');
+      }
     }
 
-    if (currentNpc === 'auntie-mei' && lowerText.includes('marcus') && !unlockedIds.has('memory-2')) {
-      console.log('[Memory] ✓ Unlocking memory-2: Marcus!');
-      unlockedIds.add('memory-2');
-      unlockMemory({
-        id: 'memory-2',
-        text: 'Marcus... that name hits different. He\'s getting married today!',
-        unlockedBy: 'auntie-mei',
-        unlockedAt: Date.now(),
-      });
-      showNotification('Memory unlocked: Marcus is getting married!', 'CBD / Raffles Place');
+    // Quest: Auntie Mei - Pay $50 or promise to help
+    if (currentNpc === 'auntie-mei' && !quests.has('auntie-mei-quest')) {
+      if (lowerText.includes('pay') || lowerText.includes('here') || lowerText.includes('fifty') ||
+          lowerText.includes('$50') || lowerText.includes('sorry') || lowerText.includes('help you') ||
+          lowerText.includes('favor') || lowerText.includes('okay lah') || lowerText.includes('fine')) {
+        console.log('[Quest] ✓ Auntie Mei quest complete!');
+        quests.add('auntie-mei-quest');
+      }
     }
 
-    if (currentNpc === 'grab-uncle' && lowerText.includes('mbs') && !unlockedIds.has('memory-3')) {
-      console.log('[Memory] ✓ Unlocking memory-3: MBS!');
-      unlockedIds.add('memory-3');
-      unlockMemory({
-        id: 'memory-3',
-        text: 'MBS - Marina Bay Sands. The wedding venue!',
-        unlockedBy: 'grab-uncle',
-        unlockedAt: Date.now(),
-      });
-      showNotification('Memory unlocked: MBS is the venue!', 'East Coast Park');
+    // Memory 2: Auntie Mei mentions Marcus (AFTER quest done)
+    if (currentNpc === 'auntie-mei' && quests.has('auntie-mei-quest') && !unlockedIds.has('memory-2')) {
+      if (lowerText.includes('marcus') || lowerText.includes('wedding') || lowerText.includes('groom') ||
+          lowerText.includes('friend') || lowerText.includes('last night')) {
+        console.log('[Memory] ✓ Unlocking memory-2: Marcus!');
+        unlockedIds.add('memory-2');
+        unlockMemory({
+          id: 'memory-2',
+          text: 'Marcus... that name hits different. He\'s getting married today!',
+          unlockedBy: 'auntie-mei',
+          unlockedAt: Date.now(),
+        });
+        showNotification('Memory unlocked: Marcus is getting married!', 'CBD / Raffles Place');
+      }
     }
 
-    if (currentNpc === 'ah-beng' && lowerText.includes('best man') && !unlockedIds.has('memory-4')) {
-      console.log('[Memory] ✓ Unlocking memory-4: Best Man!');
-      unlockedIds.add('memory-4');
-      unlockMemory({
-        id: 'memory-4',
-        text: 'I\'m the BEST MAN! Marcus trusted me with everything!',
-        unlockedBy: 'ah-beng',
-        unlockedAt: Date.now(),
-      });
-      showNotification('Memory unlocked: You\'re the BEST MAN!', 'Marina Bay Sands');
+    // Quest: Grab Uncle - Give 5 star review
+    if (currentNpc === 'grab-uncle' && !quests.has('grab-uncle-quest')) {
+      if (lowerText.includes('5 star') || lowerText.includes('five star') || lowerText.includes('review') ||
+          lowerText.includes('rating') || lowerText.includes('good driver') || lowerText.includes('best driver')) {
+        console.log('[Quest] ✓ Grab Uncle quest complete!');
+        quests.add('grab-uncle-quest');
+      }
+    }
+
+    // Memory 3: Grab Uncle mentions MBS (AFTER quest done)
+    if (currentNpc === 'grab-uncle' && quests.has('grab-uncle-quest') && !unlockedIds.has('memory-3')) {
+      if (lowerText.includes('mbs') || lowerText.includes('marina bay') || lowerText.includes('ceremony') ||
+          lowerText.includes('6pm') || lowerText.includes('wedding venue') || lowerText.includes('sands')) {
+        console.log('[Memory] ✓ Unlocking memory-3: MBS!');
+        unlockedIds.add('memory-3');
+        unlockMemory({
+          id: 'memory-3',
+          text: 'MBS - Marina Bay Sands. The wedding venue!',
+          unlockedBy: 'grab-uncle',
+          unlockedAt: Date.now(),
+        });
+        showNotification('Memory unlocked: MBS is the venue!', 'East Coast Park');
+      }
+    }
+
+    // Quest: Ah Beng - Answer Singlish quiz correctly
+    if (currentNpc === 'ah-beng' && !quests.has('ah-beng-quest')) {
+      if (lowerText.includes('can lah') || lowerText.includes('shiok') || lowerText.includes('alamak') ||
+          lowerText.includes('correct') || lowerText.includes('you pass') || lowerText.includes('not bad')) {
+        console.log('[Quest] ✓ Ah Beng quest complete!');
+        quests.add('ah-beng-quest');
+      }
+    }
+
+    // Memory 4: Ah Beng mentions best man (AFTER quest done)
+    if (currentNpc === 'ah-beng' && quests.has('ah-beng-quest') && !unlockedIds.has('memory-4')) {
+      if (lowerText.includes('best man') || lowerText.includes('bestman') || lowerText.includes('bachelor') ||
+          lowerText.includes('bbq') || lowerText.includes('party') || lowerText.includes('groomsman')) {
+        console.log('[Memory] ✓ Unlocking memory-4: Best Man!');
+        unlockedIds.add('memory-4');
+        unlockMemory({
+          id: 'memory-4',
+          text: 'I\'m the BEST MAN! Marcus trusted me with everything!',
+          unlockedBy: 'ah-beng',
+          unlockedAt: Date.now(),
+        });
+        showNotification('Memory unlocked: You\'re the BEST MAN!', 'Marina Bay Sands');
+      }
     }
   }, [state.currentNpc, unlockMemory]);
 
-  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-
-  // Watch isSpeaking to enable button after audio finishes
-  useEffect(() => {
-    if (!isSpeaking && isWaitingForResponse) {
-      console.log('[GamePage] Audio finished, enabling button');
-      setIsWaitingForResponse(false);
+  // Handle mic button click based on current status
+  const handleMicClick = () => {
+    if (status === 'listening') {
+      // Stop listening (speech recognition will auto-process)
+      stopListening();
+    } else if (status === 'speaking') {
+      // Stop speaking
+      stopSpeaking();
+    } else if (status === 'idle') {
+      // Start listening
+      startListening();
+      updateChickenMood(1); // Reward for talking
     }
-  }, [isSpeaking, isWaitingForResponse]);
+    // If processing, do nothing (wait for AI)
+  };
 
-  const handleMicClick = async () => {
-    if (status !== 'connected') {
-      await connect();
-      return;
-    }
-
-    if (isRecording) {
-      // Stop recording and wait for AI response
-      stopRecording();
-      setIsWaitingForResponse(true);
+  // Handle text input submit
+  const handleTextSubmit = async () => {
+    if (textInput.trim() && status === 'idle') {
+      await sendText(textInput);
+      setTextInput('');
       updateChickenMood(1);
-    } else if (!isWaitingForResponse) {
-      // Start recording
-      await startRecording();
     }
   };
 
@@ -177,9 +207,8 @@ export default function GamePage() {
     if (travelTo(location)) {
       setShowTravelMenu(false);
       setCurrentTranscript('');
-      setAccumulatedTranscript('');
-      setIsWaitingForResponse(false);
-      disconnect();
+      resetConversation();
+      stopSpeaking();
     }
   };
 
@@ -241,31 +270,34 @@ export default function GamePage() {
           <NPCCard
             npcId={state.currentNpc}
             transcript={currentTranscript}
-            isThinking={isRecording}
+            isThinking={status === 'processing'}
           />
         )}
 
-        {/* Connection Status */}
+        {/* Status Display */}
         <div className={`text-sm px-3 py-1 rounded-full ${
-          status === 'connected' ? 'bg-green-500/20 text-green-300' :
-          status === 'connecting' ? 'bg-yellow-500/20 text-yellow-300' :
-          'bg-red-500/20 text-red-300'
+          status === 'idle' ? 'bg-green-500/20 text-green-300' :
+          status === 'listening' ? 'bg-red-500/20 text-red-300' :
+          status === 'processing' ? 'bg-yellow-500/20 text-yellow-300' :
+          'bg-purple-500/20 text-purple-300'
         }`}>
-          {status === 'connected' ? '🟢 Voice Ready' :
-           status === 'connecting' ? '🟡 Connecting...' :
-           '🔴 Disconnected'}
+          {status === 'idle' ? '🟢 Ready to Talk' :
+           status === 'listening' ? '🔴 Listening...' :
+           status === 'processing' ? '🟡 Thinking...' :
+           '🔊 Speaking...'}
         </div>
+
+        {/* User transcript (what they said) */}
+        {userTranscript && status === 'listening' && (
+          <div className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg text-sm max-w-md text-center">
+            "{userTranscript}"
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
           <div className="bg-red-500/20 text-red-300 px-4 py-2 rounded-lg text-sm max-w-md text-center">
             {error}
-            <button
-              onClick={connect}
-              className="ml-2 underline hover:no-underline"
-            >
-              Retry
-            </button>
           </div>
         )}
       </div>
@@ -284,38 +316,57 @@ export default function GamePage() {
               w-32 h-32 rounded-full text-white font-bold
               flex flex-col items-center justify-center
               transition-all duration-200 shadow-2xl
-              ${isRecording
+              ${status === 'listening'
                 ? 'bg-red-500 scale-110 voice-recording'
-                : isWaitingForResponse || isSpeaking
-                  ? 'bg-purple-500 cursor-not-allowed'
-                  : status === 'connected'
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : 'bg-gray-500'
+                : status === 'processing'
+                  ? 'bg-yellow-500 cursor-not-allowed'
+                  : status === 'speaking'
+                    ? 'bg-purple-500'
+                    : 'bg-blue-500 hover:bg-blue-600'
               }
             `}
             whileTap={{ scale: 0.95 }}
             onClick={handleMicClick}
-            disabled={status === 'connecting' || isWaitingForResponse || isSpeaking}
+            disabled={status === 'processing'}
           >
             <span className="text-5xl mb-2">
-              {isRecording ? '⏹️' :
-               isWaitingForResponse || isSpeaking ? '🔊' :
+              {status === 'listening' ? '🎙️' :
+               status === 'processing' ? '🤔' :
+               status === 'speaking' ? '🔊' :
                '🎤'}
             </span>
             <span className="text-sm text-center">
-              {isRecording ? 'Tap to Send' :
-               isSpeaking ? 'Speaking...' :
-               isWaitingForResponse ? 'Thinking...' :
-               status === 'connected' ? 'Tap to Talk' :
-               status === 'connecting' ? 'Connecting...' :
-               'Tap to Connect'}
+              {status === 'listening' ? 'Listening...' :
+               status === 'processing' ? 'Thinking...' :
+               status === 'speaking' ? 'Tap to Stop' :
+               'Tap to Talk'}
             </span>
           </motion.button>
         </div>
 
+        {/* Text Input Fallback */}
+        <div className="flex gap-2 max-w-md mx-auto">
+          <input
+            type="text"
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
+            placeholder="Or type here..."
+            className="flex-1 bg-white/10 text-white px-4 py-2 rounded-full text-sm placeholder-gray-400"
+            disabled={status !== 'idle'}
+          />
+          <button
+            onClick={handleTextSubmit}
+            disabled={status !== 'idle' || !textInput.trim()}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-full text-sm"
+          >
+            Send
+          </button>
+        </div>
+
         {/* Instructions */}
         <p className="text-center text-gray-400 text-sm">
-          Tap to start talking, tap again to send. Try speaking Singlish!
+          Tap mic to talk, or type your message. Speak naturally!
         </p>
 
         {/* Travel Button */}

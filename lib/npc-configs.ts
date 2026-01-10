@@ -236,3 +236,21 @@ export function getNPCSystemPrompt(npcId: NPCId, gameContext?: string): string {
 
   return prompt;
 }
+
+// Map NPCs to Singlish personas for TTS
+export function getNPCPersona(npcId: NPCId): 'auntie' | 'uncle' | 'youngman' {
+  switch (npcId) {
+    case 'airport-auntie':
+    case 'auntie-mei':
+    case 'jessica':
+      return 'auntie';
+    case 'grab-uncle':
+    case 'security-guard':
+      return 'uncle';
+    case 'ah-beng':
+    case 'marcus':
+      return 'youngman';
+    default:
+      return 'auntie';
+  }
+}
