@@ -189,6 +189,7 @@ export function DrumQuest({
   const noteIdRef = useRef(0);
   const noteIndexRef = useRef(0);
   const particleIdRef = useRef(0);
+  const hitCountRef = useRef(0); // Use ref to track hits reliably
 
   // Spawn particles on hit
   const spawnParticles = useCallback((side: 'left' | 'right') => {
@@ -305,7 +306,7 @@ export function DrumQuest({
               }
               return newCombo;
             });
-            setHitCount(h => h + 1);
+            setHitCount(h => h + 1); hitCountRef.current++;
             setLastHitSide(note.side);
             setScreenShake(true);
             spawnParticles(note.side);
@@ -352,7 +353,7 @@ export function DrumQuest({
                 }
                 return newCombo;
               });
-              setHitCount(h => h + 1);
+              setHitCount(h => h + 1); hitCountRef.current++;
               setLastHitSide(note.side);
               setScreenShake(true);
               spawnParticles(note.side);
@@ -395,7 +396,7 @@ export function DrumQuest({
               }
               return newCombo;
             });
-            setHitCount(h => h + 1);
+            setHitCount(h => h + 1); hitCountRef.current++;
             setLastHitSide(note.side);
             setScreenShake(true);
             spawnParticles(note.side);
@@ -520,9 +521,10 @@ export function DrumQuest({
             clearInterval(moveInterval);
             clearInterval(spawnInterval);
 
-            // Calculate result - need at least 50% hits
+            // Calculate result - need at least 50% hits (use ref for accurate count)
             setTimeout(() => {
-              const successRate = hitCount / DRUM_PATTERN.length;
+              const successRate = hitCountRef.current / DRUM_PATTERN.length;
+              console.log('[DrumQuest] Success check:', hitCountRef.current, '/', DRUM_PATTERN.length, '=', successRate);
               if (successRate >= 0.5 || score >= 100) {
                 setStatus('success');
                 setMessage('Huat ah! 大吉大利!');
@@ -560,6 +562,7 @@ export function DrumQuest({
       setCountdown(3);
       noteIndexRef.current = 0;
       noteIdRef.current = 0;
+      hitCountRef.current = 0;
       prevFrameRef.current = null;
       startCamera();
     }

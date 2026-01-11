@@ -21,6 +21,12 @@ import { ComicPanel, LocationTransition, NarrativeCaption } from '@/components/C
 import { ActionText, useActionText, ActionBurst } from '@/components/ActionText';
 import { soundManager } from '@/lib/sound-manager';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+// TiDB Integration - Player DNA + Soul Twins
+import { useTiDB } from '@/hooks/useTiDB';
+import PlayerDNA from '@/components/PlayerDNA';
+// Permission Gate - ask for camera/mic before starting
+import { PermissionGate } from '@/components/PermissionGate';
 
 // Location backgrounds
 const LOCATION_BACKGROUNDS: Record<Location, string> = {
@@ -32,9 +38,27 @@ const LOCATION_BACKGROUNDS: Record<Location, string> = {
 };
 
 export default function GamePage() {
+  const router = useRouter();
   const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding, debugJump } = useGame();
   const [showDebug, setShowDebug] = useState(false);
   const [showTravelMenu, setShowTravelMenu] = useState(false);
+  const [showPlayerDNA, setShowPlayerDNA] = useState(false);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+
+  // TiDB Integration - track player events for DNA + Soul Twins
+  const {
+    trackConversation,
+    trackEmotion,
+    trackChickenPet,
+    trackChickenName,
+    trackQuestComplete,
+    trackLaugh,
+    trackMemoryUnlock,
+    getNPCGossip,
+  } = useTiDB(state);
+
+  // Store NPC gossip for current NPC
+  const [npcGossip, setNpcGossip] = useState<string | null>(null);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [unlockNotification, setUnlockNotification] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
@@ -63,6 +87,9 @@ export default function GamePage() {
 
   // Quest completion tracking - needs to be early since it's used in gameContext
   const [completedQuests, setCompletedQuests] = useState<Set<string>>(new Set());
+
+  // Travel prompt when new location unlocked
+  const [travelPrompt, setTravelPrompt] = useState<{ location: Location; locationName: string } | null>(null);
 
   // Refs for advanced features
   const emotionVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -130,7 +157,30 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
     ? `\n\nPLAYER EMOTION RIGHT NOW: The player looks ${playerEmotion}. React to this!`
     : '';
 
-  const systemPrompt = baseSystemPrompt + emotionContext;
+  // Add NPC gossip about other players (TiDB powered!)
+  const gossipContext = npcGossip
+    ? `\n\nGOSSIP FROM OTHER PLAYERS (use this to make conversation more interesting!):
+${npcGossip}
+Feel free to reference these other players in your responses - it makes the world feel alive!`
+    : '';
+
+  const systemPrompt = baseSystemPrompt + emotionContext + gossipContext;
+
+  // Load NPC gossip when NPC changes
+  useEffect(() => {
+    if (state.currentNpc && state.gameStarted && !state.gameOver) {
+      getNPCGossip(state.currentNpc).then((gossip) => {
+        if (gossip.length > 0) {
+          const gossipText = gossip
+            .map((g) => `- ${g.summary}`)
+            .join('\n');
+          setNpcGossip(gossipText);
+        } else {
+          setNpcGossip(null);
+        }
+      });
+    }
+  }, [state.currentNpc, state.gameStarted, state.gameOver, getNPCGossip]);
 
   // Trigger chicken reaction - Chicken is the narrator!
   const triggerChickenReaction = useCallback(async (event: string, useAI = false) => {
@@ -268,6 +318,14 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
       if (prevEmotion !== newEmotion && newEmotion !== 'neutral') {
         lastDetectedEmotionRef.current = newEmotion;
 
+        // Track emotion to TiDB for Player DNA
+        trackEmotion(newEmotion, result.confidence, `talking to ${state.currentNpc || 'nobody'}`);
+
+        // Track laughs specifically for leaderboard
+        if (newEmotion === 'funny' || newEmotion === 'happy') {
+          trackLaugh();
+        }
+
         switch (newEmotion) {
           case 'angry':
             triggerChickenReaction('player_angry');
@@ -295,7 +353,7 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
         }
       }
     }
-  }, [apiKey, triggerChickenReaction, triggerChickenReaction, showAction]);
+  }, [apiKey, triggerChickenReaction, showAction, trackEmotion, trackLaugh, state.currentNpc]);
 
   // Periodic emotion detection
   useEffect(() => {
@@ -332,12 +390,12 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
     },
   });
 
-  // Start game on mount
+  // Start game only after permissions granted
   useEffect(() => {
-    if (!state.gameStarted) {
+    if (permissionsGranted && !state.gameStarted) {
       startGame();
     }
-  }, [state.gameStarted, startGame]);
+  }, [permissionsGranted, state.gameStarted, startGame]);
 
   // Auto-start emotion detection
   useEffect(() => {
@@ -452,11 +510,16 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
     const currentNpc = state.currentNpc;
     const unlockedIds = unlockedMemoryIdsRef.current;
 
-    const showNotification = (text: string, location: string) => {
+    const showNotification = (text: string, location: string, memoryId: string) => {
       setUnlockNotification(`${text}\n${location} unlocked!`);
       showAction('memory-unlock');
       soundManager.playSuccess();
       setTimeout(() => setUnlockNotification(null), 4000);
+
+      // Track memory unlock to TiDB
+      if (currentNpc) {
+        trackMemoryUnlock(memoryId, currentNpc);
+      }
     };
 
     // Memory 1: Airport Auntie mentions Maxwell
@@ -469,7 +532,11 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
           unlockedBy: 'airport-auntie',
           unlockedAt: Date.now(),
         });
-        showNotification('Memory unlocked: Maxwell Food Centre', 'Maxwell Food Centre');
+        showNotification('Memory unlocked: Maxwell Food Centre', 'Maxwell Food Centre', 'memory-1');
+        // Prompt to travel to newly unlocked location
+        setTimeout(() => {
+          setTravelPrompt({ location: 'maxwell', locationName: LOCATION_INFO['maxwell'].name });
+        }, 2000);
       }
     }
 
@@ -483,7 +550,11 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
           unlockedBy: 'auntie-mei',
           unlockedAt: Date.now(),
         });
-        showNotification('Memory unlocked: Marcus is getting married!', 'CBD / Raffles Place');
+        showNotification('Memory unlocked: Marcus is getting married!', 'CBD / Raffles Place', 'memory-2');
+        // Prompt to travel to newly unlocked location
+        setTimeout(() => {
+          setTravelPrompt({ location: 'cbd', locationName: LOCATION_INFO['cbd'].name });
+        }, 2000);
       }
     }
 
@@ -497,7 +568,11 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
           unlockedBy: 'grab-uncle',
           unlockedAt: Date.now(),
         });
-        showNotification('Memory unlocked: MBS is the venue!', 'East Coast Park');
+        showNotification('Memory unlocked: MBS is the venue!', 'East Coast Park', 'memory-3');
+        // Prompt to travel to newly unlocked location
+        setTimeout(() => {
+          setTravelPrompt({ location: 'east-coast', locationName: LOCATION_INFO['east-coast'].name });
+        }, 2000);
       }
     }
 
@@ -511,10 +586,14 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
           unlockedBy: 'ah-beng',
           unlockedAt: Date.now(),
         });
-        showNotification('Memory unlocked: You\'re the BEST MAN!', 'Marina Bay Sands');
+        showNotification('Memory unlocked: You\'re the BEST MAN!', 'Marina Bay Sands', 'memory-4');
+        // Prompt to travel to final location
+        setTimeout(() => {
+          setTravelPrompt({ location: 'mbs', locationName: LOCATION_INFO['mbs'].name });
+        }, 2000);
       }
     }
-  }, [state.currentNpc, completedQuests, unlockMemory, showAction]);
+  }, [state.currentNpc, completedQuests, unlockMemory, showAction, trackMemoryUnlock]);
 
   // Start camera quest
   const startCameraQuest = useCallback(() => {
@@ -535,6 +614,9 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
       setTimeout(() => setUnlockNotification(null), 3000);
       updateChickenMood(5);
 
+      // Track quest completion to TiDB
+      trackQuestComplete(questId, true);
+
       // Reset conversation so NPC gets updated system prompt (knows quest is done)
       resetConversation();
 
@@ -550,7 +632,7 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
     }
     setShowCameraQuest(false);
     setCameraQuestConfig(null);
-  }, [cameraQuestConfig, updateChickenMood, showAction, sendText, sendTextWithImage, resetConversation]);
+  }, [cameraQuestConfig, updateChickenMood, showAction, sendText, sendTextWithImage, resetConversation, trackQuestComplete]);
 
   // Handle drum quest completion
   const handleDrumQuestComplete = useCallback((success: boolean, message: string) => {
@@ -563,6 +645,9 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
       updateChickenMood(10);
       triggerChickenReaction('petted');
 
+      // Track quest completion to TiDB
+      trackQuestComplete(questId, true);
+
       // Reset conversation so NPC gets updated system prompt (knows quest is done)
       resetConversation();
 
@@ -572,7 +657,7 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
       }, 500);
     }
     setShowDrumQuest(false);
-  }, [state.currentNpc, updateChickenMood, triggerChickenReaction, showAction, sendText, resetConversation]);
+  }, [state.currentNpc, updateChickenMood, triggerChickenReaction, showAction, sendText, resetConversation, trackQuestComplete]);
 
   // Quest availability checks
   const hasCameraQuest = state.currentNpc && CAMERA_QUESTS[state.currentNpc];
@@ -621,10 +706,19 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
   // Handle text submit
   const handleTextSubmit = async () => {
     if (textInput.trim() && status === 'idle') {
-      analyzePlayerEmotion(textInput);
-      await sendText(textInput);
+      const message = textInput;
+      analyzePlayerEmotion(message);
+      await sendText(message);
       setTextInput('');
       updateChickenMood(1);
+
+      // Track conversation to TiDB (NPC response comes via transcript)
+      if (state.currentNpc) {
+        // We'll track the full conversation when we get the response
+        // For now, track the player's message sentiment
+        const sentiment = playerEmotion === 'happy' ? 0.5 : playerEmotion === 'angry' ? -0.5 : 0;
+        trackConversation(state.currentNpc, message, currentTranscript, sentiment, playerEmotion === 'funny');
+      }
     }
   };
 
@@ -648,6 +742,11 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
       }, 600);
     }, 600);
   };
+
+  // Permission Gate - show before game starts
+  if (!permissionsGranted) {
+    return <PermissionGate onPermissionsGranted={() => setPermissionsGranted(true)} />;
+  }
 
   // Game over screen
   if (state.gameOver) {
@@ -692,6 +791,18 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
             {state.ending === 'chicken-lost' && 'The ceremonial chicken is now a free-range chicken.'}
             {state.ending === 'broke' && 'Stranded with no money. The chicken judges you.'}
           </p>
+
+          {/* Player DNA Button - TiDB powered! */}
+          <motion.button
+            onClick={() => setShowPlayerDNA(true)}
+            className="w-full mb-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl border-3 border-black shadow-[4px_4px_0px_#000]"
+            style={{ fontFamily: 'Bangers, cursive' }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            🧬 VIEW YOUR DNA & SOUL TWINS
+          </motion.button>
+
           <button
             onClick={() => window.location.reload()}
             className="comic-button comic-button-red text-xl px-8 py-3"
@@ -699,6 +810,9 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
             PLAY AGAIN!
           </button>
         </motion.div>
+
+        {/* Player DNA Modal */}
+        <PlayerDNA isVisible={showPlayerDNA} onClose={() => setShowPlayerDNA(false)} />
       </div>
     );
   }
@@ -800,9 +914,21 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
             chickenMood={state.chickenMood}
             onDismiss={() => setChickenReaction(null)}
           />
-          <ChickenWidget onChickenClick={() => updateChickenMood(3)} />
+          <ChickenWidget onChickenClick={() => { updateChickenMood(3); trackChickenPet(); }} />
         </div>
       </div>
+
+      {/* Home Button - fixed top left */}
+      <button
+        onClick={() => {
+          // Full page reload to reset game state
+          window.location.href = '/';
+        }}
+        className="fixed top-4 left-4 z-50 w-10 h-10 bg-white/90 hover:bg-white rounded-full border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center transition-transform hover:scale-110"
+        title="Back to Home"
+      >
+        🏠
+      </button>
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col h-full p-4 max-w-2xl mx-auto w-full">
@@ -1003,7 +1129,7 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
               chickenMood={state.chickenMood}
               onDismiss={() => setChickenReaction(null)}
             />
-            <ChickenWidget onChickenClick={() => updateChickenMood(3)} />
+            <ChickenWidget onChickenClick={() => { updateChickenMood(3); trackChickenPet(); }} />
           </div>
         </div>
       </div>
@@ -1095,6 +1221,67 @@ KEEP IT SHORT - just 1-2 sentences to chase them away!
               >
                 CANCEL
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Travel Prompt - appears when new location unlocked */}
+        {travelPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+            onClick={() => setTravelPrompt(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.5, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 20 }}
+              transition={{ type: 'spring', damping: 15 }}
+              className="bg-gradient-to-br from-green-400 to-emerald-500 p-6 rounded-2xl border-4 border-black shadow-[6px_6px_0px_#000] max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.div
+                animate={{ rotate: [0, -5, 5, 0] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+                className="text-5xl text-center mb-3"
+              >
+                🗺️
+              </motion.div>
+              <h3
+                className="text-2xl font-bold text-white text-center mb-2 drop-shadow-lg"
+                style={{ fontFamily: 'Bangers, cursive' }}
+              >
+                NEW LOCATION UNLOCKED!
+              </h3>
+              <p
+                className="text-white text-center text-lg mb-4"
+                style={{ fontFamily: 'Comic Neue, cursive' }}
+              >
+                You can now travel to <strong>{travelPrompt.locationName}</strong>!
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTravelPrompt(null)}
+                  className="flex-1 py-3 bg-white/20 text-white font-bold rounded-xl border-2 border-white/50"
+                  style={{ fontFamily: 'Bangers, cursive' }}
+                >
+                  LATER
+                </button>
+                <motion.button
+                  onClick={() => {
+                    travelTo(travelPrompt.location);
+                    setTravelPrompt(null);
+                  }}
+                  className="flex-1 py-3 bg-yellow-400 text-black font-bold rounded-xl border-2 border-black shadow-[3px_3px_0px_#000]"
+                  style={{ fontFamily: 'Bangers, cursive' }}
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                >
+                  GO NOW! 🚀
+                </motion.button>
+              </div>
             </motion.div>
           </motion.div>
         )}

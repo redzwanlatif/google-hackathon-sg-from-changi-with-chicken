@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { soundManager } from '@/lib/sound-manager';
+import LiveStats from '@/components/LiveStats';
 
 export default function HomePage() {
   const [showIntro, setShowIntro] = useState(false);
@@ -213,7 +214,7 @@ export default function HomePage() {
           initial={{ y: 50, opacity: 0 }}
           animate={showSubtitle ? { y: 0, opacity: 1 } : {}}
           transition={{ delay: 0.2, type: 'spring' }}
-          className="flex flex-wrap justify-center gap-3 mb-8"
+          className="flex flex-wrap justify-center gap-3 mb-6"
         >
           {['🎤 VOICE CHAT', '🧠 AI NPCs', '📸 CAMERA QUESTS', '🥁 MINI GAMES'].map((feature, i) => (
             <motion.div
@@ -228,6 +229,71 @@ export default function HomePage() {
               {feature}
             </motion.div>
           ))}
+        </motion.div>
+
+        {/* TiDB WOW Features */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={showSubtitle ? { opacity: 1, scale: 1 } : {}}
+          transition={{ delay: 0.5, type: 'spring' }}
+          className="mb-8"
+        >
+          <div className="bg-gradient-to-r from-[#E23636] via-[#B91C1C] to-[#E23636] p-4 border-4 border-black shadow-[6px_6px_0px_#1a1a1a] rounded-lg">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Image src="/assets/tidb-white.png" alt="TiDB" width={60} height={22} />
+              <span
+                className="text-xl text-white"
+                style={{ fontFamily: 'Bangers, cursive' }}
+              >
+                POWERED FEATURES
+              </span>
+              <motion.span
+                animate={{ rotate: [0, 15, -15, 0] }}
+                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+              >
+                ⚡
+              </motion.span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[
+                { icon: '🧬', title: 'PLAYER DNA', desc: 'Your unique playstyle fingerprint' },
+                { icon: '👯', title: 'SOUL TWINS', desc: 'Find players like you via vector search' },
+                { icon: '💬', title: 'NPC GOSSIP', desc: 'NPCs remember other players' },
+                { icon: '🗣️', title: 'SINGLISH STATS', desc: 'Track trending phrases' },
+              ].map((feature, i) => (
+                <motion.div
+                  key={feature.title}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-2 text-center border border-white/20"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.6 + i * 0.1 }}
+                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.2)' }}
+                >
+                  <div className="text-2xl mb-1">{feature.icon}</div>
+                  <div
+                    className="text-xs font-bold text-yellow-300"
+                    style={{ fontFamily: 'Bangers, cursive' }}
+                  >
+                    {feature.title}
+                  </div>
+                  <div
+                    className="text-[10px] text-white/80 leading-tight"
+                    style={{ fontFamily: 'Comic Neue, cursive' }}
+                  >
+                    {feature.desc}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-2 text-center">
+              <span
+                className="text-white/60 text-xs"
+                style={{ fontFamily: 'Comic Neue, cursive' }}
+              >
+                Real-time analytics with TiDB Cloud Vector Search
+              </span>
+            </div>
+          </div>
         </motion.div>
 
         {/* Buttons */}
@@ -268,20 +334,33 @@ export default function HomePage() {
           </motion.button>
         </motion.div>
 
-        {/* Gemini Badge */}
+        {/* Powered by badges */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={showButtons ? { opacity: 1 } : {}}
           transition={{ delay: 0.5 }}
-          className="mt-8"
+          className="mt-8 flex flex-wrap justify-center gap-3"
         >
           <div
-            className="inline-block bg-black/80 text-white px-4 py-2 rounded-lg border-2 border-[#4ECDC4]"
+            className="inline-flex items-center bg-black/80 text-white px-4 py-2 rounded-lg border-2 border-[#4ECDC4]"
             style={{ fontFamily: 'Comic Neue, cursive' }}
           >
             <span className="text-sm">Powered by</span>
             <span className="ml-2 text-[#4ECDC4] font-bold">Gemini 2.0</span>
             <span className="ml-1 text-sm">🌟</span>
+          </div>
+          <div
+            className="inline-flex items-center bg-black/80 text-white px-4 py-2 rounded-lg border-2 border-[#E23636]"
+            style={{ fontFamily: 'Comic Neue, cursive' }}
+          >
+            <span className="text-sm">Database by</span>
+            <Image
+              src="/assets/tidb-white.png"
+              alt="TiDB"
+              width={60}
+              height={20}
+              className="ml-2"
+            />
           </div>
         </motion.div>
 
@@ -300,6 +379,26 @@ export default function HomePage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Live Stats Panel - TiDB Powered */}
+      <motion.div
+        initial={{ x: 300, opacity: 0 }}
+        animate={showButtons ? { x: 0, opacity: 1 } : {}}
+        transition={{ delay: 0.8, type: 'spring', damping: 20 }}
+        className="fixed top-20 right-4 w-72 z-30 hidden lg:block"
+      >
+        <LiveStats />
+      </motion.div>
+
+      {/* Mobile Stats - shown below main content */}
+      <motion.div
+        initial={{ y: 50, opacity: 0 }}
+        animate={showButtons ? { y: 0, opacity: 1 } : {}}
+        transition={{ delay: 1 }}
+        className="relative z-10 mt-8 px-4 max-w-sm mx-auto lg:hidden"
+      >
+        <LiveStats />
+      </motion.div>
 
       {/* Comic panel corners */}
       <div className="fixed top-4 left-4 w-12 h-12 border-t-4 border-l-4 border-[#FFE135] z-20" />

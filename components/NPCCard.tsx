@@ -261,7 +261,7 @@ export function NPCCard({ npcId, transcript, isThinking, onPortraitClick }: NPCC
       {/* Speech Bubble */}
       <AnimatePresence mode="wait">
         {isThinking && !transcript ? (
-          <ThinkingBubble key="thinking" />
+          <ThinkingBubble key="thinking" npcId={npcId} />
         ) : transcript ? (
           <ComicSpeechBubble
             key="speech"

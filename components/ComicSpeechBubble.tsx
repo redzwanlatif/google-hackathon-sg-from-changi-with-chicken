@@ -171,14 +171,68 @@ export function ComicSpeechBubble({
   );
 }
 
-// Thinking indicator component
-export function ThinkingBubble({ speakerName }: { speakerName?: string }) {
+// Fun thinking messages per NPC
+const NPC_THINKING_MESSAGES: Record<string, string[]> = {
+  'airport-auntie': [
+    'Cleaning thoughts...',
+    'Sweeping her mind...',
+    'Mopping up ideas...',
+    'Dusting off memories...',
+    'Checking for rubbish...',
+  ],
+  'auntie-mei': [
+    'Stirring her thoughts...',
+    'Cooking up a response...',
+    'Grabbing her ladle...',
+    'Heating up the wok...',
+    'Preparing to scold you...',
+    'Counting your $50 debt...',
+    'Sharpening her tongue...',
+  ],
+  'grab-uncle': [
+    'Checking GPS...',
+    'Calculating route...',
+    'Adjusting rearview mirror...',
+    'Thinking philosophically...',
+    'Remembering old stories...',
+    'Tuning the radio...',
+  ],
+  'ah-beng': [
+    'Flexing brain muscles...',
+    'Doing mental pushups...',
+    'Remembering NS days...',
+    'Striking a pose...',
+    'Checking hair gel...',
+    'Practicing cool moves...',
+  ],
+  'default': [
+    'Thinking...',
+    'Processing...',
+    'Hmm...',
+    'Let me think ah...',
+    'Wait ah...',
+  ],
+};
+
+// Thinking indicator component with fun rotating messages
+export function ThinkingBubble({ speakerName, npcId }: { speakerName?: string; npcId?: string }) {
+  const [messageIndex, setMessageIndex] = useState(0);
+  const messages = NPC_THINKING_MESSAGES[npcId || 'default'] || NPC_THINKING_MESSAGES['default'];
+
+  // Rotate messages every 1.5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % messages.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
-      className="comic-speech-bubble min-w-[100px] relative"
+      className="comic-speech-bubble min-w-[180px] relative"
     >
       {speakerName && (
         <div
@@ -188,22 +242,36 @@ export function ThinkingBubble({ speakerName }: { speakerName?: string }) {
           {speakerName}
         </div>
       )}
-      <div className="flex gap-2 items-center justify-center py-2">
-        <motion.span
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-          className="w-3 h-3 rounded-full bg-black"
-        />
-        <motion.span
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
-          className="w-3 h-3 rounded-full bg-black"
-        />
-        <motion.span
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
-          className="w-3 h-3 rounded-full bg-black"
-        />
+      <div className="flex flex-col items-center justify-center py-2 px-3">
+        {/* Fun message */}
+        <motion.p
+          key={messageIndex}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          className="text-sm text-gray-700 mb-2 text-center"
+          style={{ fontFamily: 'Comic Neue, cursive', fontStyle: 'italic' }}
+        >
+          {messages[messageIndex]}
+        </motion.p>
+        {/* Bouncing dots */}
+        <div className="flex gap-2 items-center justify-center">
+          <motion.span
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+            className="w-3 h-3 rounded-full bg-black"
+          />
+          <motion.span
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
+            className="w-3 h-3 rounded-full bg-black"
+          />
+          <motion.span
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+            className="w-3 h-3 rounded-full bg-black"
+          />
+        </div>
       </div>
     </motion.div>
   );
