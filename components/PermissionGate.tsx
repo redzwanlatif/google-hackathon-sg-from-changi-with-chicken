@@ -101,7 +101,7 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="relative z-10 max-w-md w-full"
+        className="relative z-10 max-w-md w-full bg-black/40 backdrop-blur-sm rounded-2xl p-6 border-4 border-black shadow-[6px_6px_0px_#000]"
       >
         {/* Title */}
         <motion.div
