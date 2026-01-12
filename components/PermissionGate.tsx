@@ -60,15 +60,6 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
     }
   };
 
-  const skipPermission = () => {
-    if (currentStep === 'camera') {
-      setCameraStatus('granted'); // Allow skip but mark as granted for flow
-      setCurrentStep('mic');
-    } else if (currentStep === 'mic') {
-      setMicStatus('granted');
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 comic-game-bg relative overflow-hidden">
       {/* Background */}
@@ -130,17 +121,28 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
         <div className="space-y-4">
           {/* Camera Permission */}
           <motion.div
-            className={`comic-panel p-5 ${
-              cameraStatus === 'granted'
-                ? 'bg-gradient-to-br from-green-400 to-emerald-500'
-                : cameraStatus === 'denied'
-                ? 'bg-gradient-to-br from-red-400 to-red-500'
-                : 'bg-gradient-to-br from-blue-400 to-cyan-500'
-            }`}
+            className="comic-panel p-5 relative overflow-hidden group"
             animate={currentStep === 'camera' ? { scale: [1, 1.02, 1] } : {}}
             transition={{ duration: 1, repeat: currentStep === 'camera' ? Infinity : 0 }}
           >
-            <div className="flex items-start gap-4">
+            {/* Background Image & Overlay */}
+            <div className="absolute inset-0 z-0">
+              <Image 
+                src="/assets/background/changi_airport.jpeg" 
+                alt="Background" 
+                fill 
+                className="object-cover"
+              />
+              <div className={`absolute inset-0 opacity-80 ${
+                cameraStatus === 'granted'
+                  ? 'bg-[#FFE135]'
+                  : cameraStatus === 'denied'
+                  ? 'bg-[#E23636]'
+                  : 'bg-[#4ECDC4]'
+              }`} />
+            </div>
+
+            <div className="flex items-start gap-4 relative z-10">
               <motion.div
                 className="text-5xl"
                 animate={cameraStatus === 'requesting' ? { rotate: [0, 10, -10, 0] } : {}}
@@ -150,13 +152,17 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
               </motion.div>
               <div className="flex-1">
                 <h3
-                  className="text-xl text-white font-bold mb-1"
+                  className={`text-xl font-bold mb-1 ${
+                    cameraStatus === 'denied' ? 'text-white' : 'text-[#1a1a1a]'
+                  }`}
                   style={{ fontFamily: 'Bangers, cursive' }}
                 >
                   CAMERA ACCESS
                 </h3>
                 <p
-                  className="text-white/90 text-sm mb-3"
+                  className={`text-sm mb-3 ${
+                    cameraStatus === 'denied' ? 'text-white/90' : 'text-[#1a1a1a]/90'
+                  }`}
                   style={{ fontFamily: 'Comic Neue, cursive' }}
                 >
                   {cameraStatus === 'granted'
@@ -175,13 +181,6 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
                     >
                       {cameraStatus === 'requesting' ? '🔄 CHECKING...' : '📷 ALLOW CAMERA'}
                     </motion.button>
-                    <button
-                      onClick={skipPermission}
-                      className="py-2 px-3 bg-white/20 text-white text-sm rounded-lg border-2 border-white/30"
-                      style={{ fontFamily: 'Comic Neue, cursive' }}
-                    >
-                      Skip
-                    </button>
                   </div>
                 )}
               </div>
@@ -190,19 +189,30 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
 
           {/* Microphone Permission */}
           <motion.div
-            className={`comic-panel p-5 ${
-              micStatus === 'granted'
-                ? 'bg-gradient-to-br from-green-400 to-emerald-500'
-                : micStatus === 'denied'
-                ? 'bg-gradient-to-br from-red-400 to-red-500'
-                : currentStep === 'mic' || currentStep === 'ready'
-                ? 'bg-gradient-to-br from-purple-400 to-pink-500'
-                : 'bg-gradient-to-br from-gray-400 to-gray-500'
-            }`}
+            className="comic-panel p-5 relative overflow-hidden group"
             animate={currentStep === 'mic' ? { scale: [1, 1.02, 1] } : {}}
             transition={{ duration: 1, repeat: currentStep === 'mic' ? Infinity : 0 }}
           >
-            <div className="flex items-start gap-4">
+            {/* Background Image & Overlay */}
+            <div className="absolute inset-0 z-0">
+              <Image 
+                src="/assets/background/maxwell_fc.jpeg" 
+                alt="Background" 
+                fill 
+                className="object-cover"
+              />
+              <div className={`absolute inset-0 opacity-80 ${
+                micStatus === 'granted'
+                  ? 'bg-[#FFE135]'
+                  : micStatus === 'denied'
+                  ? 'bg-[#E23636]'
+                  : currentStep === 'mic' || currentStep === 'ready'
+                  ? 'bg-[#FF69B4]'
+                  : 'bg-[#2B4C7E]'
+              }`} />
+            </div>
+
+            <div className="flex items-start gap-4 relative z-10">
               <motion.div
                 className="text-5xl"
                 animate={micStatus === 'requesting' ? { scale: [1, 1.2, 1] } : {}}
@@ -212,13 +222,21 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
               </motion.div>
               <div className="flex-1">
                 <h3
-                  className="text-xl text-white font-bold mb-1"
+                  className={`text-xl font-bold mb-1 ${
+                    micStatus === 'granted' || (currentStep === 'mic' || currentStep === 'ready') && micStatus !== 'denied'
+                      ? 'text-[#1a1a1a]'
+                      : 'text-white'
+                  }`}
                   style={{ fontFamily: 'Bangers, cursive' }}
                 >
                   MICROPHONE ACCESS
                 </h3>
                 <p
-                  className="text-white/90 text-sm mb-3"
+                  className={`text-sm mb-3 ${
+                    micStatus === 'granted' || (currentStep === 'mic' || currentStep === 'ready') && micStatus !== 'denied'
+                      ? 'text-[#1a1a1a]/90'
+                      : 'text-white/90'
+                  }`}
                   style={{ fontFamily: 'Comic Neue, cursive' }}
                 >
                   {micStatus === 'granted'
@@ -237,13 +255,6 @@ export function PermissionGate({ onPermissionsGranted }: PermissionGateProps) {
                     >
                       {micStatus === 'requesting' ? '🔄 CHECKING...' : '🎤 ALLOW MIC'}
                     </motion.button>
-                    <button
-                      onClick={skipPermission}
-                      className="py-2 px-3 bg-white/20 text-white text-sm rounded-lg border-2 border-white/30"
-                      style={{ fontFamily: 'Comic Neue, cursive' }}
-                    >
-                      Skip
-                    </button>
                   </div>
                 )}
               </div>
