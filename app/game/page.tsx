@@ -113,6 +113,9 @@ export default function GamePage() {
   // NPCs that use special quests
   const DRUM_QUEST_NPCS = ['ah-beng'];
 
+  // Memory unlock tracking (moved here so it's available for game context building)
+  const unlockedMemoryIdsRef = useRef<Set<string>>(new Set());
+
   // Get NPC config
   const npcConfig = state.currentNpc ? getNPCConfig(state.currentNpc) : null;
 
@@ -120,7 +123,20 @@ export default function GamePage() {
   const questId = state.currentNpc ? `${state.currentNpc}-quest` : '';
   const isQuestCompleted = completedQuests.has(questId);
 
-  const gameContext = isQuestCompleted
+  // Map NPCs to their corresponding memory IDs
+  const npcMemoryMap: Record<string, string> = {
+    'airport-auntie': 'memory-1',
+    'auntie-mei': 'memory-2',
+    'grab-uncle': 'memory-3',
+    'ah-beng': 'memory-4',
+  };
+
+  // Only chase away after BOTH quest done AND memory unlocked
+  const correspondingMemory = state.currentNpc ? npcMemoryMap[state.currentNpc] : null;
+  const isMemoryUnlocked = correspondingMemory ? unlockedMemoryIdsRef.current.has(correspondingMemory) : false;
+  const shouldChaseAway = isQuestCompleted && isMemoryUnlocked;
+
+  const gameContext = shouldChaseAway
     ? `
 ###########################################
 ## CRITICAL OVERRIDE - QUEST IS DONE!! ##
@@ -146,6 +162,23 @@ EXAMPLE RESPONSES (pick one style):
 - "Wah lau, I already help you, now shoo shoo! Go save the wedding!"
 
 KEEP IT SHORT - just 1-2 sentences to chase them away!
+###########################################
+`
+    : isQuestCompleted
+    ? `
+###########################################
+## QUEST COMPLETE - REVEAL INFO NOW!! ##
+###########################################
+
+The player just completed your quest! NOW you must reveal the important story information.
+
+YOUR RESPONSE MUST INCLUDE:
+- Congratulate them on completing the quest
+- Tell them the KEY INFO from your "AFTER QUEST COMPLETE" section
+- For Ah Beng: You MUST say "best man" - tell them they're Marcus's best man!
+- Mention the wedding at MBS
+
+Be excited and helpful - they earned this info!
 ###########################################
 `
     : '';
@@ -501,9 +534,6 @@ Feel free to reference these other players in your responses - it makes the worl
 
     return () => clearTimeout(timer);
   }, [state.currentNpc, state.gameStarted, state.gameOver, enableEmotionDetection, captureLiveFrame, sendTextWithImage]);
-
-  // Memory unlock tracking
-  const unlockedMemoryIdsRef = useRef<Set<string>>(new Set());
 
   const checkForMemoryUnlock = useCallback((text: string) => {
     const lowerText = text.toLowerCase();
