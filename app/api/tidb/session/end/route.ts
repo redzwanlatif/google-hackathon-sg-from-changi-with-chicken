@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         (SELECT COUNT(*) FROM npc_conversations WHERE session_id = ?) as total_conversations,
         (SELECT COUNT(*) FROM player_events WHERE session_id = ? AND event_type = 'laugh') as total_laughs,
         (SELECT COALESCE(AVG(player_sentiment), 0) FROM npc_conversations WHERE session_id = ?) as avg_sentiment,
-        (SELECT JSON_ARRAYAGG(DISTINCT emotion) FROM emotion_timeline WHERE session_id = ?) as emotions_detected`,
+        (SELECT CONCAT('[', COALESCE(GROUP_CONCAT(DISTINCT emotion), ''), ']') FROM emotion_timeline WHERE session_id = ?) as emotions_detected`,
       [sessionId, sessionId, sessionId, sessionId]
     );
 
@@ -65,7 +65,20 @@ export async function POST(request: NextRequest) {
     // 3. Calculate derived values
     const completionTime = 7200 - gameState.timeRemaining;
     const singlishFluency = Math.min(100, sessionStats.total_conversations * 5 + 20);
-    const emotionalRange = JSON.parse(sessionStats.emotions_detected || '[]') as string[];
+
+    // Parse emotions - GROUP_CONCAT returns comma-separated string like "happy,sad,angry"
+    const emotionsStr = sessionStats.emotions_detected || '[]';
+    let emotionalRange: string[] = [];
+    if (emotionsStr && emotionsStr !== '[]') {
+      // Handle both JSON array and comma-separated string
+      try {
+        emotionalRange = JSON.parse(emotionsStr);
+      } catch {
+        // If not valid JSON, treat as comma-separated (from GROUP_CONCAT)
+        const inner = emotionsStr.replace(/^\[|\]$/g, '');
+        emotionalRange = inner ? inner.split(',').map(s => s.trim()).filter(Boolean) : [];
+      }
+    }
 
     // 4. Determine player type and traits
     const playerType = calculatePlayerType({
