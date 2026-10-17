@@ -166,16 +166,15 @@ Now acknowledge the quest completion AND give them a funny roast!` }
 
       console.log('[BrowserVoiceChat] AI Response:', responseText);
 
-      // Speak the response using Gemini TTS with Singlish accent
-      // Text will only be shown when audio starts playing
+      // Speak the response - text only shows when audio actually starts
       if (ttsRef.current) {
         await ttsRef.current.speak(responseText, () => {
-          // This callback is called when audio actually starts playing
+          // Audio is now playing - show text synchronized
           setAiTranscript(responseText);
           optionsRef.current.onTranscript?.(responseText);
         });
       } else {
-        // No TTS available, show text immediately and unlock
+        // No TTS available, show text and unlock
         setAiTranscript(responseText);
         optionsRef.current.onTranscript?.(responseText);
         setStatus('idle');

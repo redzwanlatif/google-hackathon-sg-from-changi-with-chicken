@@ -12,6 +12,7 @@ import { LOCATION_INFO, Location } from '@/lib/game-state';
 import { getNPCConfig, getNPCSystemPrompt, getNPCPersona } from '@/lib/npc-configs';
 import { CameraQuest } from '@/components/CameraQuest';
 import { DrumQuest } from '@/components/DrumQuest';
+import { TriviaQuest } from '@/components/TriviaQuest';
 // Advanced Gemini Features - Chicken is the narrator!
 import { ChickenBubble } from '@/components/ChickenBubble';
 import { getChickenReaction, getQuickChickenReaction, QUICK_CHICKEN_REACTIONS } from '@/lib/ai-chicken';
@@ -32,6 +33,7 @@ import { PermissionGate } from '@/components/PermissionGate';
 const LOCATION_BACKGROUNDS: Record<Location, string> = {
   'changi': '/assets/background/changi_airport.jpeg',
   'maxwell': '/assets/background/maxwell_fc.jpeg',
+  'arab-street': '/assets/background/zamzam.jpeg',
   'cbd': '/assets/background/CBD_raffles.jpeg',
   'east-coast': '/assets/background/MarinaBay.jpeg',
   'mbs': '/assets/background/MarinaBay.jpeg',
@@ -39,7 +41,7 @@ const LOCATION_BACKGROUNDS: Record<Location, string> = {
 
 export default function GamePage() {
   const router = useRouter();
-  const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding, debugJump } = useGame();
+  const { state, startGame, updateChickenMood, travelTo, unlockMemory, triggerEnding, debugJump, gainMoney } = useGame();
   const [showDebug, setShowDebug] = useState(false);
   const [showTravelMenu, setShowTravelMenu] = useState(false);
   const [showPlayerDNA, setShowPlayerDNA] = useState(false);
@@ -64,6 +66,7 @@ export default function GamePage() {
   const [textInput, setTextInput] = useState('');
   const [showCameraQuest, setShowCameraQuest] = useState(false);
   const [showDrumQuest, setShowDrumQuest] = useState(false);
+  const [showTriviaQuest, setShowTriviaQuest] = useState(false);
   const [cameraQuestConfig, setCameraQuestConfig] = useState<{
     prompt: string;
     description: string;
@@ -112,6 +115,7 @@ export default function GamePage() {
 
   // NPCs that use special quests
   const DRUM_QUEST_NPCS = ['ah-beng'];
+  const TRIVIA_QUEST_NPCS = ['zamzam-uncle'];
 
   // Memory unlock tracking (moved here so it's available for game context building)
   const unlockedMemoryIdsRef = useRef<Set<string>>(new Set());
@@ -689,9 +693,39 @@ Feel free to reference these other players in your responses - it makes the worl
     setShowDrumQuest(false);
   }, [state.currentNpc, updateChickenMood, triggerChickenReaction, showAction, sendText, resetConversation, trackQuestComplete]);
 
+  // Handle trivia quest completion (money-earning quest!)
+  const handleTriviaQuestComplete = useCallback((success: boolean, score: number, message: string) => {
+    if (success && state.currentNpc) {
+      const questId = `${state.currentNpc}-quest`;
+      setCompletedQuests(prev => new Set(prev).add(questId));
+
+      // Award money based on score ($5 per correct answer)
+      const moneyEarned = score * 5;
+      gainMoney(moneyEarned);
+
+      setUnlockNotification(`Trivia Complete!\nYou earned $${moneyEarned}!`);
+      showAction('quest-complete');
+      setTimeout(() => setUnlockNotification(null), 3000);
+      updateChickenMood(5);
+
+      // Track quest completion to TiDB
+      trackQuestComplete(questId, true);
+
+      // Reset conversation so NPC gets updated system prompt
+      resetConversation();
+
+      // Auto-trigger NPC dialogue after quest completion
+      setTimeout(() => {
+        sendText(`I got ${score} out of 5 correct! How did I do?`);
+      }, 500);
+    }
+    setShowTriviaQuest(false);
+  }, [state.currentNpc, gainMoney, updateChickenMood, showAction, sendText, resetConversation, trackQuestComplete]);
+
   // Quest availability checks
   const hasCameraQuest = state.currentNpc && CAMERA_QUESTS[state.currentNpc];
   const hasDrumQuest = state.currentNpc && DRUM_QUEST_NPCS.includes(state.currentNpc);
+  const hasTriviaQuest = state.currentNpc && TRIVIA_QUEST_NPCS.includes(state.currentNpc);
   const questNotDone = state.currentNpc && !completedQuests.has(`${state.currentNpc}-quest`);
 
   // Check if can deliver chicken
@@ -983,8 +1017,8 @@ Feel free to reference these other players in your responses - it makes the worl
                 isThinking={status === 'processing'}
               />
 
-              {/* Quest Button - positioned next to NPC portrait */}
-              {((hasCameraQuest && questNotDone) || (hasDrumQuest && questNotDone)) && (
+              {/* Quest Button - positioned next to NPC portrait (hidden while processing/speaking) */}
+              {status === 'idle' && ((hasCameraQuest && questNotDone) || (hasDrumQuest && questNotDone) || (hasTriviaQuest && questNotDone)) && (
                 <motion.div
                   className="absolute -right-4 top-1/4 z-20"
                   initial={{ scale: 0, x: -20 }}
@@ -1023,6 +1057,23 @@ Feel free to reference these other players in your responses - it makes the worl
                     >
                       <span className="text-3xl">🥁</span>
                       <span className="text-sm">TAP ME!</span>
+                    </motion.button>
+                  )}
+                  {hasTriviaQuest && questNotDone && (
+                    <motion.button
+                      onClick={() => setShowTriviaQuest(true)}
+                      className="flex flex-col items-center gap-1 bg-gradient-to-br from-amber-500 to-orange-600
+                                 px-4 py-3 rounded-xl border-4 border-black shadow-[4px_4px_0px_#000]
+                                 text-white font-bold"
+                      animate={{
+                        scale: [1, 1.1, 1],
+                        rotate: [0, -3, 3, 0]
+                      }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                      style={{ fontFamily: 'Bangers, cursive' }}
+                    >
+                      <span className="text-3xl">🧠</span>
+                      <span className="text-sm">TRIVIA!</span>
                     </motion.button>
                   )}
                 </motion.div>
@@ -1068,89 +1119,68 @@ Feel free to reference these other players in your responses - it makes the worl
           )}
         </div>
 
-        {/* Voice Input Area */}
-        <div className="mt-auto space-y-4 pb-4">
-          {/* Big Voice Button - Comic Style */}
-          <div className="flex justify-center">
-            <motion.button
-              className={`
-                comic-voice-button
-                w-28 h-28 rounded-full text-white
-                flex flex-col items-center justify-center
-                ${status === 'listening'
-                  ? 'bg-gradient-to-br from-red-500 to-red-600 listening'
-                  : status === 'processing'
-                    ? 'bg-gradient-to-br from-yellow-400 to-orange-400'
-                    : status === 'speaking'
-                      ? 'bg-gradient-to-br from-purple-500 to-pink-500'
-                      : 'bg-gradient-to-br from-blue-500 to-cyan-400'
-                }
-              `}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleMicClick}
-              disabled={status === 'processing'}
-            >
-              <span className="text-4xl mb-1 relative z-10">
-                {status === 'listening' ? '🎙️' :
-                 status === 'processing' ? '🤔' :
-                 status === 'speaking' ? '🔊' :
-                 '🎤'}
-              </span>
-              <span
-                className="text-xs relative z-10"
-                style={{ fontFamily: 'Bangers, cursive' }}
-              >
-                {status === 'listening' ? 'LISTENING' :
-                 status === 'processing' ? 'THINKING' :
-                 status === 'speaking' ? 'TAP STOP' :
-                 'TAP TALK'}
-              </span>
-            </motion.button>
-          </div>
-
-          {/* Text Input */}
-          <div className="flex gap-2 max-w-md mx-auto">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
-              placeholder="Or type here lah..."
-              className="flex-1 px-4 py-2 rounded-full border-3 border-black text-black placeholder-gray-500"
-              style={{ fontFamily: 'Comic Neue, cursive' }}
-              disabled={status !== 'idle'}
-            />
-            <button
-              onClick={handleTextSubmit}
-              disabled={status !== 'idle' || !textInput.trim()}
-              className="comic-button px-4"
-            >
-              SEND
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-center gap-3 flex-wrap">
-            {/* Deliver Chicken - MBS only */}
-            {canDeliverChicken && (
+        {/* Voice Input Area - only shown when idle */}
+        {status === 'idle' && (
+          <div className="mt-auto space-y-4 pb-4">
+            {/* Big Voice Button - Comic Style (only shown when idle) */}
+            <div className="flex justify-center">
               <motion.button
-                onClick={deliverChicken}
-                className="comic-button comic-button-red text-lg px-6 py-3"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 0.5, repeat: Infinity }}
+                className="comic-voice-button w-28 h-28 rounded-full text-white flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-400"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleMicClick}
               >
-                🐔 DELIVER CHICKEN! 🎊
+                <span className="text-4xl mb-1 relative z-10">🎤</span>
+                <span
+                  className="text-xs relative z-10"
+                  style={{ fontFamily: 'Bangers, cursive' }}
+                >
+                  TAP TALK
+                </span>
               </motion.button>
-            )}
+            </div>
 
-            {/* Travel Button */}
-            <button
-              onClick={() => setShowTravelMenu(true)}
-              className="comic-button comic-button-blue"
-            >
-              🗺️ TRAVEL
-            </button>
-          </div>
+            {/* Text Input */}
+            <div className="flex gap-2 max-w-md mx-auto">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
+                placeholder="Or type here lah..."
+                className="flex-1 px-4 py-2 rounded-full border-3 border-black text-black placeholder-gray-500"
+                style={{ fontFamily: 'Comic Neue, cursive' }}
+              />
+              <button
+                onClick={handleTextSubmit}
+                disabled={!textInput.trim()}
+                className="comic-button px-4"
+              >
+                SEND
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-3 flex-wrap">
+              {/* Deliver Chicken - MBS only */}
+              {canDeliverChicken && (
+                <motion.button
+                  onClick={deliverChicken}
+                  className="comic-button comic-button-red text-lg px-6 py-3"
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                >
+                  🐔 DELIVER CHICKEN! 🎊
+                </motion.button>
+              )}
+
+              {/* Travel Button */}
+              <button
+                onClick={() => setShowTravelMenu(true)}
+                className="comic-button comic-button-blue"
+              >
+                🗺️ TRAVEL
+              </button>
+            </div>
 
           {/* Chicken Widget with Bubble - inline on mobile only */}
           <div className="flex flex-col items-center pt-2 relative md:hidden">
@@ -1161,7 +1191,8 @@ Feel free to reference these other players in your responses - it makes the worl
             />
             <ChickenWidget onChickenClick={() => { updateChickenMood(3); trackChickenPet(); }} />
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Travel Menu - Comic Style */}
@@ -1255,8 +1286,8 @@ Feel free to reference these other players in your responses - it makes the worl
           </motion.div>
         )}
 
-        {/* Travel Prompt - appears when new location unlocked */}
-        {travelPrompt && (
+        {/* Travel Prompt - appears when new location unlocked (only when idle) */}
+        {travelPrompt && status === 'idle' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1405,6 +1436,13 @@ Feel free to reference these other players in your responses - it makes the worl
         isOpen={showDrumQuest}
         onClose={() => setShowDrumQuest(false)}
         onQuestComplete={handleDrumQuestComplete}
+      />
+
+      {/* Trivia Quest Modal - Arab Street / Zam Zam */}
+      <TriviaQuest
+        isOpen={showTriviaQuest}
+        onClose={() => setShowTriviaQuest(false)}
+        onQuestComplete={handleTriviaQuestComplete}
       />
     </div>
   );

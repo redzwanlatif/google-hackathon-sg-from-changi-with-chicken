@@ -10,6 +10,7 @@ import { Location } from '@/lib/game-state';
 const LOCATION_BACKGROUNDS: Record<Location, string> = {
   'changi': '/assets/background/changi_airport.jpeg',
   'maxwell': '/assets/background/maxwell_fc.jpeg',
+  'arab-street': '/assets/background/maxwell_fc.jpeg', // TODO: Replace with arab_street.jpeg
   'cbd': '/assets/background/CBD_raffles.jpeg',
   'east-coast': '/assets/background/MarinaBay.jpeg', // Using Marina Bay for East Coast
   'mbs': '/assets/background/MarinaBay.jpeg',

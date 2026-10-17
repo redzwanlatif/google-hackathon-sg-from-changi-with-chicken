@@ -29,6 +29,12 @@ const NPC_PORTRAITS: Record<NPCId, Partial<Record<NPCEmotion, string>>> = {
     talking: '/assets/characters/muthu_talking.png',
     happy: '/assets/characters/grab_uncle_1.png',
   },
+  'zamzam-uncle': {
+    default: '/assets/characters/zamzam_action.png',
+    happy: '/assets/characters/zamzam_happy.png',
+    angry: '/assets/characters/zamzam_angry.png',
+    talking: '/assets/characters/zamzam_action.png',
+  },
   'ah-beng': {
     default: '/assets/characters/nsman_default.png',
     funny: '/assets/characters/nsman_funnyface.png',
@@ -191,6 +197,7 @@ export function NPCCard({ npcId, transcript, isThinking, onPortraitClick }: NPCC
           <div className="absolute inset-0 flex items-center justify-center text-6xl bg-gray-200">
             {npcId === 'airport-auntie' && '🧹'}
             {npcId === 'auntie-mei' && '🍜'}
+            {npcId === 'zamzam-uncle' && '🥙'}
             {npcId === 'grab-uncle' && '🚗'}
             {npcId === 'ah-beng' && '💪'}
             {npcId === 'jessica' && '📱'}

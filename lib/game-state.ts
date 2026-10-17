@@ -1,6 +1,7 @@
 export type Location =
   | 'changi'
   | 'maxwell'
+  | 'arab-street'
   | 'cbd'
   | 'east-coast'
   | 'mbs';
@@ -10,6 +11,7 @@ export type ChickenMood = 'happy' | 'neutral' | 'upset' | 'furious';
 export type NPCId =
   | 'airport-auntie'
   | 'auntie-mei'
+  | 'zamzam-uncle'
   | 'grab-uncle'
   | 'ah-beng'
   | 'jessica'
@@ -65,6 +67,7 @@ export const INITIAL_GAME_STATE: GameState = {
   npcTrust: {
     'airport-auntie': 0,
     'auntie-mei': -2,  // starts mad (owes $50)
+    'zamzam-uncle': 1, // friendly murtabak master
     'grab-uncle': 1,
     'ah-beng': 0,
     'jessica': -1,     // stressed
@@ -80,6 +83,11 @@ export const LOCATION_UNLOCK_MAP: Record<string, Location> = {
   'memory-2': 'cbd',          // Auntie Mei mentions Marcus → unlock CBD (Grab Uncle)
   'memory-3': 'east-coast',   // Grab Uncle mentions MBS → unlock East Coast
   'memory-4': 'mbs',          // Ah Beng mentions best man → unlock MBS (final)
+};
+
+// Optional locations that unlock alongside main story locations (for side quests)
+export const OPTIONAL_LOCATION_UNLOCKS: Record<string, Location> = {
+  'memory-1': 'arab-street',  // Arab Street unlocks with Maxwell - OPTIONAL money quest
 };
 
 export const LOCATION_INFO: Record<Location, {
@@ -102,6 +110,13 @@ export const LOCATION_INFO: Record<Location, {
     npcs: ['auntie-mei'],
     travelCost: 5,
     travelTime: 600, // 10 min
+  },
+  'arab-street': {
+    name: 'Arab Street (Zam Zam)',
+    description: 'Legendary murtabak since 1908',
+    npcs: ['zamzam-uncle'],
+    travelCost: 4,
+    travelTime: 300, // 5 min - quick trip
   },
   cbd: {
     name: 'CBD / Raffles Place',

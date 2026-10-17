@@ -163,14 +163,16 @@ export class GeminiTTS {
 
       console.log('[GeminiTTS] Playing audio, duration:', audioBuffer.duration, 'seconds');
 
-      // Call callbacks when audio actually starts playing
+      // Start audio first, then call callbacks (synchronized)
+      source.start(0);
+
+      // Call callbacks now that audio is playing
       this.onStartCallback?.();
       onAudioReady?.();
-
-      source.start(0);
     } catch (error) {
       console.error('[GeminiTTS] Playback error:', error);
       this.isPlaying = false;
+      // Audio failed - don't show text, just end
       this.onEndCallback?.();
     }
   }
@@ -194,11 +196,13 @@ export class GeminiTTS {
 
       utterance.onerror = () => {
         this.isPlaying = false;
+        // Audio failed - don't show text
         this.onEndCallback?.();
       };
 
       window.speechSynthesis.speak(utterance);
     } else {
+      // No speech synthesis available - no audio, no text
       this.isPlaying = false;
       this.onEndCallback?.();
     }

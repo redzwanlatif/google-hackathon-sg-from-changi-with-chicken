@@ -86,6 +86,7 @@ function getFallbackResponse(npcId: NPCId): string {
   const fallbacks: Record<NPCId, string> = {
     'airport-auntie': 'Aiyoh, you okay or not? You look damn blur sia.',
     'auntie-mei': 'You still owe me money leh! $50 remember?',
+    'zamzam-uncle': 'Eh abang! You want try my trivia or not? Can win money one!',
     'grab-uncle': 'Boss, last night you were crying in my car about some wedding.',
     'ah-beng': 'Bro! You\'re Marcus\'s best man right?',
     'jessica': 'WHERE ARE YOU?! The wedding is starting!',

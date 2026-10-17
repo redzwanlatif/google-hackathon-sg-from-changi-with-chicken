@@ -8,7 +8,8 @@ import {
   NPCId,
   Memory,
   LOCATION_INFO,
-  LOCATION_UNLOCK_MAP
+  LOCATION_UNLOCK_MAP,
+  OPTIONAL_LOCATION_UNLOCKS
 } from '@/lib/game-state';
 
 type GameAction =
@@ -88,9 +89,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
       // Check if this memory unlocks a new location
       const newLocation = LOCATION_UNLOCK_MAP[action.memory.id];
-      const newUnlockedLocations = newLocation && !state.unlockedLocations.includes(newLocation)
-        ? [...state.unlockedLocations, newLocation]
-        : state.unlockedLocations;
+      // Also check for optional side-quest locations (e.g., Arab Street for money quest)
+      const optionalLocation = OPTIONAL_LOCATION_UNLOCKS[action.memory.id];
+
+      let newUnlockedLocations = [...state.unlockedLocations];
+      if (newLocation && !newUnlockedLocations.includes(newLocation)) {
+        newUnlockedLocations.push(newLocation);
+      }
+      if (optionalLocation && !newUnlockedLocations.includes(optionalLocation)) {
+        newUnlockedLocations.push(optionalLocation);
+      }
 
       return {
         ...state,
